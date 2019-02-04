@@ -25,7 +25,7 @@ routes = [route['id'] for route in routes]
 
 print(routes)
 
-for single_date in daterange(date(2017,7,29), date(2018,1,1)):
+for single_date in daterange(date(2017,11,30), date(2019,2,1)):
     print(single_date.strftime("\n%Y-%m-%d"))
 
     for route in routes:
@@ -33,7 +33,7 @@ for single_date in daterange(date(2017,7,29), date(2018,1,1)):
         # Try to do this 10 times. 
         for attempt in range(10):
             try:
-                r = requests.get('https://rtl2.ods-live.co.uk/api/trackingHistory', params={'service':route, 'date':single_date.strftime("%Y-%m-%d"), **payload_key})
+                r = requests.get('https://rtl2.ods-live.co.uk/api/trackingHistory', params={'service':route, 'date':single_date.strftime("%Y-%m-%d"), **payload_key}, timeout=5)
 
                 s3.uploadJsonObject(r.json(), f"trackingHistory/{single_date.strftime('%Y-%m-%d')}/service-{route}.json")
             except Exception as e: #on exception print an x and wait a bit longer each time (in seconds)
@@ -49,7 +49,7 @@ for single_date in daterange(date(2017,7,29), date(2018,1,1)):
 
         for attempt in range(10):
             try:
-                r = requests.get('https://rtl2.ods-live.co.uk/api/scheduledJourneys', params={'service':route, 'date':single_date.strftime("%Y-%m-%d"), **payload_key})
+                r = requests.get('https://rtl2.ods-live.co.uk/api/scheduledJourneys', params={'service':route, 'date':single_date.strftime("%Y-%m-%d"), **payload_key}, timeout=5)
 
                 s3.uploadJsonObject(r.json(), f"scheduledJourneys/{single_date.strftime('%Y-%m-%d')}/service-{route}.json")
             except Exception as e: #on exception print an x and wait a bit longer each time (in seconds)
