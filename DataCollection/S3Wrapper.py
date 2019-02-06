@@ -31,6 +31,9 @@ class S3Wrapper():
     def list_bucket(self, prefix, startFrom=''):
         response = self.client.list_objects_v2(Bucket=self.bucket, Prefix=prefix, StartAfter=startFrom)
 
+        if('Contents' in response == False):
+            return []
+
         return [ item['Key'] for item in response['Contents']]
 
 if __name__ == "__main__":
