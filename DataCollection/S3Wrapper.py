@@ -28,10 +28,13 @@ class S3Wrapper():
         except ClientError:
             return False
 
+    def list_bucket(self, prefix, startFrom=''):
+        response = self.client.list_objects_v2(Bucket=self.bucket, Prefix=prefix, StartAfter=startFrom)
 
+        return [ item['Key'] for item in response['Contents']]
 
 if __name__ == "__main__":
 
     wrapper = S3Wrapper()
 
-    wrapper.uploadString("this is a second test", "test/test/second test.txt")
+    print(wrapper.list_bucket("trackingHistory", 'trackingHistory/2017-01-11/service-50a.json'))
