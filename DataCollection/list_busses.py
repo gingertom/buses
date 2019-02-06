@@ -8,7 +8,7 @@ def daterange(start_date, end_date):
 
 s3 = S3Wrapper()
 
-for single_date in daterange(date(2017,1,1), date(2017,1,4)):
+for single_date in daterange(date(2017,1,14), date(2017,1,16)):
     print(single_date.strftime("\n%Y-%m-%d"))
 
     files = s3.list_bucket(f"trackingHistory/{single_date.strftime('%Y-%m-%d')}/")
@@ -25,10 +25,15 @@ for single_date in daterange(date(2017,1,1), date(2017,1,4)):
         if('code' in tracking_data and tracking_data['code'] == 100):
             continue
 
+        # We've tried to download too much data. This needs recording and fixing. 
+        if('status' in tracking_data and tracking_data['status'] == "false"):
+            s3.uploadJsonObject("status == false", f"trackingToComeBackTo/{file}")
+            continue
+
         # Loop through every stop in the tracking file and record the vehicle-route combination and start and stop times. 
         # SOme busses do multiple routes within a day so we need to do this for every file before we can be sure we are done. 
         for stop in tracking_data:
-            if(stop['VehicleCode']== ""):
+            if ('VehicleCode' in stop == False) or stop['VehicleCode']== "":
                 continue
 
             vehicle_code = stop['VehicleCode']
