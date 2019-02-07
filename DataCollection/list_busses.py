@@ -31,7 +31,7 @@ for single_date in daterange(date(2017,1,14), date(2017,1,16)):
             continue
 
         # Loop through every stop in the tracking file and record the vehicle-route combination and start and stop times. 
-        # SOme busses do multiple routes within a day so we need to do this for every file before we can be sure we are done. 
+        # Some busses do multiple routes within a day so we need to do this for every file before we can be sure we are done. 
         for stop in tracking_data:
             if ('VehicleCode' in stop == False) or stop['VehicleCode']== "":
                 continue
@@ -71,6 +71,7 @@ for single_date in daterange(date(2017,1,14), date(2017,1,16)):
             lines_shifted = np.concatenate(([bus_dict['lines'][0]], bus_dict['lines'][:-1]))
 
             # We find all the indices where the true lines and offset lines are different. 
+            # We are doing this as we want to find where the bus switches lines
             # This approach won't catch the case where the last stop is different from the 
             # penultimate but that seems unlikely enough that I'm going to ignore it. 
             changes = np.where(bus_dict['lines'] != lines_shifted)[0]
