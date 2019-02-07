@@ -29,12 +29,14 @@ def daterange(start_date, end_date):
 
 # enableLogging()
 
-for single_date in daterange(date(2017,6,1), date(2017,6,3)):
+for single_date in daterange(date(2017,5,25), date(2019,2,1)):
     print(single_date.strftime("\n%Y-%m-%d"))
 
     busses = s3.fetchJson(f"bussesAndRoutes/{single_date.strftime('%Y-%m-%d')}.json")
 
     for bus in busses:
+
+        printed_x = False
 
         # Try to do this 10 times. 
         for attempt in range(10):
@@ -42,6 +44,11 @@ for single_date in daterange(date(2017,6,1), date(2017,6,3)):
                 r = requests.get('https://rtl2.ods-live.co.uk/api/vehiclePositionHistory', params={'vehicle':bus, 'date':single_date.strftime("%Y-%m-%d"), **payload_key}, timeout=100)
 
                 location_data = r.json()
+
+                # We've tried to download too much data. Lets try splitting it in half
+                if('status' in location_data and location_data['status'] == "false" and 'message' in location_data and location_data['message'] == "No data Found"):
+                    printed_x = True
+                    print('x', end="")
 
                 # We've tried to download too much data. Lets try splitting it in half
                 if('status' in location_data and location_data['status'] == "false" and 'message' in location_data and location_data['message'].startswith("Too much data")):
@@ -64,7 +71,8 @@ for single_date in daterange(date(2017,6,1), date(2017,6,3)):
             # If we've done all 10 attempts print the failure.
             print(f"\nERROR: vehiclePositionHistory/{single_date.strftime('%Y-%m-%d')}/vehicle-{bus} FAILED 10 times")
 
-        print(".", end="")
+        if(printed_x == False):
+            print(".", end="")
         sys.stdout.flush()
 
 
