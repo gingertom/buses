@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "/Users/tommelamed/anaconda3/envs/busses/bin/python"
+    "python.pythonPath": "/Users/tommelamed/anaconda3/envs/busses/bin/python",
+    "python.formatting.provider": "black"
 }
