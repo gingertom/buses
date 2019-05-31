@@ -2,6 +2,32 @@ import numpy as np
 import pandas as pd
 import datetime
 
+
+def copy_to_prev(df, to_row_index, from_row_index):
+
+    df.at[to_row_index, "match"] = True
+
+    df.at[
+        to_row_index,
+        [
+            "prev_stopCode",
+            "prev_aimedArrival",
+            "prev_aimedDeparture",
+            "prev_actualArrival",
+            "prev_actualDeparture",
+        ],
+    ] = df.loc[
+        from_row_index,
+        [
+            "stopCode",
+            "aimedArrival",
+            "aimedDeparture",
+            "actualArrival",
+            "actualDeparture",
+        ],
+    ].values
+
+
 # Load the vehicle events which are almost what we need for stop events
 vehicle_events = pd.read_csv(
     "Trapeze_Data/VehicleEvents.csv", nrows=50000, parse_dates=[1, 5, 6]
@@ -20,8 +46,7 @@ stop_events = pd.merge(
     right_on=["workid", "date"],
 )
 
-
-# Convert aimed arrival and departure to datetime opbjects.
+# Convert aimed arrival and departure to datetime objects.
 stop_events["aimedArrival"] = pd.to_datetime(
     stop_events["date"] + pd.to_timedelta(stop_events["aimedArrival"], unit="s")
 ).astype("datetime64[ns]")
@@ -34,37 +59,95 @@ stop_events["aimedDeparture"] = pd.to_datetime(
 patterns = pd.read_csv("Trapeze_Data/Patterns.csv")
 
 # Group by data and id (which collectively is a unique identifier for a unit of work)
-# and patternId, we don't strictly need to group by patternId but it's a handy way of getting it out
-single_patterns = stop_events.groupby(["date", "id", "patternId"])
+single_patterns = stop_events.groupby(["date", "id"])
+
+to_write = None
 
 for name, group in single_patterns:
-    print(name[2])
 
-    for row_index, row in group.iterrows():
-        print(row)
+    group = group.assign(
+        prev_stopCode="",
+        prev_aimedArrival=datetime.datetime.now(),
+        prev_aimedDeparture=datetime.datetime.now(),
+        prev_actualArrival=datetime.datetime.now(),
+        prev_actualDeparture=datetime.datetime.now(),
+        match=False,
+        timingPoint=0,
+    )
 
-        # For each row see if the one above it or the one below it matches the previous stop code
-        # Remember that some patterns are cyclical and so we can't just start from the top and
-        # find the first stop code that matches
+    # Get the list of stop codes for this pattern as a python list
+    # print(group.iloc[0]["patternId"])
+    stop_codes = list(
+        patterns.loc[patterns.id == group.iloc[0]["patternId"]].stopCode.values
+    )
 
-# # Find every row that has a valid previous stop on the same
-# # pattern with the same vehicle on the same date
-# stop_events["match"] = np.logical_and(
-#     np.logical_and(
-#         stop_events.date == stop_events.date.shift(1),
-#         stop_events.vehicle == stop_events.vehicle.shift(1),
-#     ),
-#     stop_events.patternId == stop_events.patternId.shift(1),
-# )
+    timing_points = list(
+        patterns.loc[patterns.id == group.iloc[0]["patternId"]].timingPoint.values
+    )
 
-# # Generate new columns with the details of the previous stop, it
-# # doesn't matter if this isn't valid as we'll only export the valid ones
-# stop_events["prev_stopCode"] = stop_events.stopCode.shift(1)
-# stop_events["prev_aimedArrival"] = stop_events.aimedArrival.shift(1)
-# stop_events["prev_aimedDeparture"] = stop_events.aimedDeparture.shift(1)
-# stop_events["prev_actualArrival"] = stop_events.actualArrival.shift(1)
-# stop_events["prev_actualDeparture"] = stop_events.actualDeparture.shift(1)
+    value_counts = group["stopCode"].value_counts()
 
-# print(stop_events.iloc[3000:3003])
+    prev_stop_code = ""
+    prev_index_into_group = -1
 
-# stop_events[stop_events.match is True].to_csv("stop_events.csv", index=False)
+    for stop_index, stop_code in enumerate(stop_codes):
+
+        found_stops = group[group.stopCode == stop_code]
+
+        # If this stop isn't recorded in the vehicle events skip it
+        if found_stops.size == 0:
+            continue
+
+        index_into_group = found_stops.index[0]
+
+        # This is the first stop of the pattern, there is no previous so we don't have a match
+        if stop_index == 0 or prev_index_into_group == -1:
+
+            prev_stop_code = stop_code
+            prev_index_into_group = index_into_group
+            continue
+
+        # If this is a duplicate stop then we need to treat it specially and merge the rows
+        if value_counts.loc[stop_code] > 1:
+
+            # This is the second instance, we've already dealt with it.
+            # We don't mark this as a match and we don't update
+            # the previous_index_into_group as this row is ignored
+            if prev_stop_code == stop_code:
+                continue
+            else:
+                # This is the first instance of the duplicate stop, we need to put data from both bits of the stop
+                # Taking advantage of the fact that we know each duplicate stop is exactly two, next to each other
+                # and that the second one is always a timing point
+                second_index = group[group.stopCode == stop_code].index[1]
+
+                group.at[
+                    index_into_group, ["aimedDeparture", "actualDeparture"]
+                ] = group.loc[
+                    second_index, ["aimedDeparture", "actualDeparture"]
+                ].values
+
+                group.at[index_into_group, "timingPoint"] = timing_points[
+                    stop_index + 1
+                ]
+        else:
+            # If it's not a duplicate then we copy over the timing point info directly
+            group.at[index_into_group, "timingPoint"] = timing_points[stop_index]
+
+        # Now we copy over the details from the last stop, missing stops
+        # and duplicate stops have already been handled
+        copy_to_prev(group, index_into_group, prev_index_into_group)
+
+        prev_stop_code = stop_code
+        prev_index_into_group = index_into_group
+
+    if to_write is None:
+        to_write = group
+    else:
+        to_write = to_write.append(group)
+
+    print(".", end="")
+
+print(to_write)
+
+to_write.to_csv("stop_events.csv", index=False)
