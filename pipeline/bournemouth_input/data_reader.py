@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import datetime
+from tqdm import tqdm
 
 
 def copy_to_prev(df, to_row_index, from_row_index):
@@ -30,7 +31,9 @@ def copy_to_prev(df, to_row_index, from_row_index):
 
 # Load the vehicle events which are almost what we need for stop events
 vehicle_events = pd.read_csv(
-    "Trapeze_Data/VehicleEvents.csv", nrows=50000, parse_dates=[1, 5, 6]
+    # "Trapeze_Data/VehicleEvents.csv", nrows=50000, parse_dates=[1, 5, 6]
+    "Trapeze_Data/VehicleEvents.csv",
+    parse_dates=[1, 5, 6],
 )
 
 # Load the performed work, which tells us about patterns, vehicles etc,
@@ -61,9 +64,9 @@ patterns = pd.read_csv("Trapeze_Data/Patterns.csv")
 # Group by data and id (which collectively is a unique identifier for a unit of work)
 single_patterns = stop_events.groupby(["date", "id"])
 
-to_write = None
+to_write_list = []
 
-for name, group in single_patterns:
+for name, group in tqdm(single_patterns):
 
     group = group.assign(
         prev_stopCode="",
@@ -77,7 +80,7 @@ for name, group in single_patterns:
 
     # Get the list of stop codes for this pattern as a python list
     # print(group.iloc[0]["patternId"])
-    stop_codes = list(
+    stop_codes_from_pattern = list(
         patterns.loc[patterns.id == group.iloc[0]["patternId"]].stopCode.values
     )
 
@@ -87,10 +90,60 @@ for name, group in single_patterns:
 
     value_counts = group["stopCode"].value_counts()
 
+    # If there are no duplicates in either the actual visited stops
+    # or the stops in the pattern and they have the same things in them
+    # we can optimise this with vectorised code
+    if (
+        value_counts.max() == 1
+        and len(stop_codes_from_pattern) == len(set(stop_codes_from_pattern))
+        and set(stop_codes_from_pattern) == set(group["stopCode"].values)
+    ):
+
+        # Set up the stop codes with a custom sort order
+        group["stopCode"] = pd.Categorical(group["stopCode"], stop_codes_from_pattern)
+
+        # Do the sorting
+        group = group.sort_values("stopCode")
+
+        # Now that they are in the correct oder we can use shift to assign all the previous in one go.
+        group[
+            [
+                "prev_stopCode",
+                "prev_aimedArrival",
+                "prev_aimedDeparture",
+                "prev_actualArrival",
+                "prev_actualDeparture",
+            ]
+        ] = group[
+            [
+                "stopCode",
+                "aimedArrival",
+                "aimedDeparture",
+                "actualArrival",
+                "actualDeparture",
+            ]
+        ].shift(
+            1
+        )
+
+        # And assign the timing points
+        group["timingPoint"] = timing_points
+
+        # And set every stop except the first as a match
+        group["match"] = True
+
+        match_index = group.columns.get_loc("match")
+        group.iat[0, match_index] = False
+
+        to_write_list.append(group)
+
+        continue
+
+    # If we can't be smart and vectorise then do this the slow and rather laborious way
     prev_stop_code = ""
     prev_index_into_group = -1
 
-    for stop_index, stop_code in enumerate(stop_codes):
+    for stop_index, stop_code in enumerate(stop_codes_from_pattern):
 
         found_stops = group[group.stopCode == stop_code]
 
@@ -141,13 +194,20 @@ for name, group in single_patterns:
         prev_stop_code = stop_code
         prev_index_into_group = index_into_group
 
-    if to_write is None:
-        to_write = group
-    else:
-        to_write = to_write.append(group)
+    to_write_list.append(group)
 
-    print(".", end="")
+    # print(".", end="")
 
-print(to_write)
+# print(to_write)
 
-to_write.to_csv("stop_events.csv", index=False)
+to_write = pd.concat(to_write_list, ignore_index=True)
+
+to_write["segment_code"] = (
+    to_write.prev_stopCode
+    + "_"
+    + to_write.stopCode
+    + "_"
+    + to_write.timingPoint.astype(str)
+)
+
+to_write[to_write.match is True].to_csv("stop_events.csv", index=False)
