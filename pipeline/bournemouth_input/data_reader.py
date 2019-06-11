@@ -210,4 +210,6 @@ to_write["segment_code"] = (
     + to_write.timingPoint.astype(str)
 )
 
-to_write[to_write.match is True].to_csv("stop_events.csv", index=False)
+to_write[to_write.match is True].to_csv(
+    "Intermediate_Data/stop_events.csv", index=False
+)
