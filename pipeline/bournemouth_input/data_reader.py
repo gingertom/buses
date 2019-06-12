@@ -31,8 +31,8 @@ def copy_to_prev(df, to_row_index, from_row_index):
 
 # Load the vehicle events which are almost what we need for stop events
 vehicle_events = pd.read_csv(
-    # "Trapeze_Data/VehicleEvents.csv", nrows=50000, parse_dates=[1, 5, 6]
     "Trapeze_Data/VehicleEvents.csv",
+    # nrows=5000,
     parse_dates=[1, 5, 6],
 )
 
@@ -148,7 +148,7 @@ for name, group in tqdm(single_patterns):
         found_stops = group[group.stopCode == stop_code]
 
         # If this stop isn't recorded in the vehicle events skip it
-        if found_stops.size == 0:
+        if found_stops.shape[0] == 0:
             continue
 
         index_into_group = found_stops.index[0]
@@ -189,7 +189,10 @@ for name, group in tqdm(single_patterns):
 
         # Now we copy over the details from the last stop, missing stops
         # and duplicate stops have already been handled
-        copy_to_prev(group, index_into_group, prev_index_into_group)
+        # There is a rare corner case when the pattern repeats but the group
+        # doesn't that can lead to the same row being it's own previous we check for that now
+        if index_into_group != prev_index_into_group:
+            copy_to_prev(group, index_into_group, prev_index_into_group)
 
         prev_stop_code = stop_code
         prev_index_into_group = index_into_group
@@ -210,6 +213,5 @@ to_write["segment_code"] = (
     + to_write.timingPoint.astype(str)
 )
 
-to_write[to_write.match is True].to_csv(
-    "Intermediate_Data/stop_events.csv", index=False
-)
+# Use match as a mask as it's already boolean
+to_write[to_write.match].to_csv("Intermediate_Data/stop_events_debug.csv", index=False)
