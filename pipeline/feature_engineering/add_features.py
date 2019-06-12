@@ -38,6 +38,8 @@ print("Dropping nans...")
 stop_events = stop_events.dropna(axis=0)
 print("\tDropped")
 
+stop_events["segment_name"] = stop_events.prev_stopCode + "_" + stop_events.stopCode
+
 print("Adding Durations...")
 # Add new columns with some durations.
 stop_events["dwell_duration_dest"] = (
@@ -70,8 +72,10 @@ mean_durations_by_segment_code = (
 stop_events = stop_events.merge(
     mean_durations_by_segment_code.to_frame(), "left", on=["segment_code"]
 )
+
+
 mean_durations_by_segment_code_and_hour = (
-    stop_events.groupby(["segment_code", arrival_times.dt.hour])["segment_duration"]
+    stop_events.groupby(["segment_code", "arrival_hour"])["segment_duration"]
     .mean()
     .rename("mean_durations_by_segment_code_and_hour")
 )
@@ -79,13 +83,14 @@ stop_events = stop_events.merge(
     mean_durations_by_segment_code_and_hour.to_frame(),
     "left",
     left_on=["segment_code", "arrival_hour"],
-    right_on=["segment_code", "actualArrival"],
+    right_on=["segment_code", "arrival_hour"],
 )
 
+
 mean_durations_by_segment_code_and_hour_and_day = (
-    stop_events.groupby(
-        ["segment_code", arrival_times.dt.hour, arrival_times.dt.dayofweek]
-    )["segment_duration"]
+    stop_events.groupby(["segment_code", "arrival_hour", "arrival_day"])[
+        "segment_duration"
+    ]
     .mean()
     .rename("mean_durations_by_segment_code_and_hour_and_day")
 )
@@ -93,6 +98,75 @@ stop_events = stop_events.merge(
     mean_durations_by_segment_code_and_hour_and_day.to_frame(),
     "left",
     left_on=["segment_code", "arrival_hour", "arrival_day"],
+    right_index=True,
+)
+
+mean_dwell_dest_durations_by_stop_code = (
+    stop_events.groupby("stopCode")["dwell_duration_dest"]
+    .mean()
+    .rename("mean_dwell_dest_durations_by_stop_code")
+)
+stop_events = stop_events.merge(
+    mean_dwell_dest_durations_by_stop_code.to_frame(), "left", on=["stopCode"]
+)
+
+mean_dwell_prev_durations_by_stop_code = mean_dwell_dest_durations_by_stop_code.rename(
+    "mean_dwell_prev_durations_by_stop_code"
+)
+
+stop_events = stop_events.merge(
+    mean_dwell_prev_durations_by_stop_code.to_frame(),
+    "left",
+    left_on=["prev_stopCode"],
+    right_on=["stopCode"],
+)
+
+mean_dwell_dest_by_stop_code_and_hour = (
+    stop_events.groupby(["stopCode", "arrival_hour"])["dwell_duration_dest"]
+    .mean()
+    .rename("mean_dwell_dest_by_stop_code_and_hour")
+)
+stop_events = stop_events.merge(
+    mean_dwell_dest_by_stop_code_and_hour.to_frame(),
+    "left",
+    left_on=["stopCode", "arrival_hour"],
+    right_on=["stopCode", "arrival_hour"],
+)
+
+mean_dwell_prev_by_stop_code_and_hour = mean_dwell_dest_by_stop_code_and_hour.rename(
+    "mean_dwell_prev_by_stop_code_and_hour"
+)
+
+stop_events = stop_events.merge(
+    mean_dwell_prev_by_stop_code_and_hour.to_frame(),
+    "left",
+    left_on=["prev_stopCode", "arrival_hour"],
+    right_on=["stopCode", "arrival_hour"],
+)
+
+
+mean_dwell_dest_by_stop_code_and_hour_and_day = (
+    stop_events.groupby(["stopCode", "arrival_hour", "arrival_day"])[
+        "dwell_duration_dest"
+    ]
+    .mean()
+    .rename("mean_dwell_dest_by_stop_code_and_hour_and_day")
+)
+stop_events = stop_events.merge(
+    mean_dwell_dest_by_stop_code_and_hour_and_day.to_frame(),
+    "left",
+    left_on=["stopCode", "arrival_hour", "arrival_day"],
+    right_index=True,
+)
+
+mean_dwell_prev_by_stop_code_and_hour_and_day = mean_dwell_dest_by_stop_code_and_hour_and_day.rename(
+    "mean_dwell_prev_by_stop_code_and_hour_and_day"
+)
+
+stop_events = stop_events.merge(
+    mean_dwell_prev_by_stop_code_and_hour_and_day.to_frame(),
+    "left",
+    left_on=["prev_stopCode", "arrival_hour", "arrival_day"],
     right_index=True,
 )
 
@@ -131,7 +205,7 @@ def haversine(lon1, lat1, lon2, lat2):
 unique_segment_codes = pd.unique(stop_events["segment_code"])
 
 stop_events = stop_events.assign(
-    line_distance=0, midpoint_lat=0, midpoint_lon=0, to_centre_dist=0, inness=0
+    line_distance=0, midpoint_lat=0, midpoint_lon=0, to_centre_dist=0, direction=0
 )
 
 for segment_code in tqdm(unique_segment_codes):
@@ -140,6 +214,9 @@ for segment_code in tqdm(unique_segment_codes):
 
     from_code = codes[0]
     to_code = codes[1]
+
+    if from_code == to_code:
+        continue
 
     from_coords = stops.loc[from_code].values
     to_coords = stops.loc[to_code].values
@@ -152,15 +229,21 @@ for segment_code in tqdm(unique_segment_codes):
     from_centre_dist = haversine(*from_coords, *CENTRE_BOURNEMOUTH)
     to_centre_distance = haversine(*to_coords, *CENTRE_BOURNEMOUTH)
 
-    innes = (from_centre_dist - to_centre_distance) / line_distance
+    direction = (from_centre_dist - to_centre_distance) / line_distance
 
     # print(line_distance)
     # print(to_centre_distance)
 
     stop_events.loc[
         stop_events["segment_code"] == segment_code,
-        ["line_distance", "midpoint_lat", "midpoint_lon", "to_centre_dist", "inness"],
-    ] = (line_distance, mid_coords[0], mid_coords[1], mid_centre_distance, innes)
+        [
+            "line_distance",
+            "midpoint_lat",
+            "midpoint_lon",
+            "to_centre_dist",
+            "direction",
+        ],
+    ] = (line_distance, mid_coords[0], mid_coords[1], mid_centre_distance, direction)
 
 print("\tCalculated")
 
