@@ -148,7 +148,10 @@ for name, group in tqdm(single_patterns):
         found_stops = group[group.stopCode == stop_code]
 
         # If this stop isn't recorded in the vehicle events skip it
+        # but we also set the prev_index_into_group as -1 so that
+        # the system doesn't make a false bridge between unconnected segments
         if found_stops.shape[0] == 0:
+            prev_index_into_group = -1
             continue
 
         index_into_group = found_stops.index[0]
