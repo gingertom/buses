@@ -39,9 +39,24 @@ print("\tLoaded")
 
 print("Pivoting data...")
 
+stop_events["arrival_5mins"] = stop_events["actualArrival"].dt.round("5min")
 stop_events["arrival_10mins"] = stop_events["actualArrival"].dt.round("10min")
 stop_events["arrival_1hour"] = stop_events["date"] + pd.to_timedelta(
     stop_events["arrival_hour"].values, unit="h"
+)
+
+pivoted_5mins_code_hour_day = stop_events.pivot_table(
+    index="arrival_5mins",
+    columns="segment_code",
+    values="diff_percent_full_segment_and_median_by_segment_code_and_hour_and_day",
+    aggfunc=np.mean,
+)
+
+pivoted_5mins_code = stop_events.pivot_table(
+    index="arrival_5mins",
+    columns="segment_code",
+    values="diff_percent_full_segment_and_median_by_segment_code",
+    aggfunc=np.mean,
 )
 
 pivoted_10mins_code_hour_day = stop_events.pivot_table(
@@ -76,6 +91,14 @@ pivoted_1hour_code = stop_events.pivot_table(
 print("\tpivoted")
 
 print("Writing output file...")
+
+pivoted_5mins_code_hour_day.to_csv(
+    "Intermediate_Data/diff_5mins_code_hour_day_percent_full_segment_time_series.csv"
+)
+
+pivoted_5mins_code.to_csv(
+    "Intermediate_Data/diff_5mins_code_percent_full_segment_time_series.csv"
+)
 
 pivoted_10mins_code_hour_day.to_csv(
     "Intermediate_Data/diff_10mins_code_hour_day_percent_full_segment_time_series.csv"
