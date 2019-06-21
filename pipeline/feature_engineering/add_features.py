@@ -4,357 +4,409 @@ import datetime
 
 from tqdm import tqdm
 
-print("Loading data...")
-# Load in the stop_events from the previous stage in the pipeline
-stop_events = pd.read_csv(
-    "Intermediate_Data/stop_events_with_geo_features.csv", parse_dates=[1, 5, 6, 18, 19]
-)
+from argparse import ArgumentParser
+import os.path
+from pathlib import Path
 
 
-# Force it to treat all the times as actual times.
-stop_events["aimedArrival"] = stop_events["aimedArrival"].astype("datetime64[ns]")
-stop_events["aimedDeparture"] = stop_events["aimedDeparture"].astype("datetime64[ns]")
-stop_events["prev_aimedArrival"] = stop_events["prev_aimedArrival"].astype(
-    "datetime64[ns]"
-)
-stop_events["prev_aimedDeparture"] = stop_events["prev_aimedDeparture"].astype(
-    "datetime64[ns]"
-)
-stop_events["prev_actualArrival"] = stop_events["prev_actualArrival"].astype(
-    "datetime64[ns]"
-)
-stop_events["prev_actualDeparture"] = stop_events["prev_actualDeparture"].astype(
-    "datetime64[ns]"
-)
+def add_durations(stop_events):
+    print("Adding Durations...")
+    # Add new columns with some durations.
+    stop_events["dwell_duration_dest"] = (
+        stop_events.actualDeparture - stop_events.actualArrival
+    ).astype("timedelta64[s]")
+    stop_events["dwell_duration_prev"] = (
+        stop_events.prev_actualDeparture - stop_events.prev_actualArrival
+    ).astype("timedelta64[s]")
+    stop_events["segment_duration"] = (
+        stop_events.actualArrival - stop_events.prev_actualDeparture
+    ).astype("timedelta64[s]")
+    stop_events["timetable_segment_duration"] = (
+        stop_events.aimedArrival - stop_events.prev_aimedDeparture
+    ).astype("timedelta64[s]")
 
-print("\tLoaded")
+    stop_events["full_duration"] = (
+        stop_events["dwell_duration_prev"] + stop_events["segment_duration"]
+    )
 
-print("Dropping nans...")
-# Drop any rows with nan or empty sections.
-stop_events = stop_events.dropna(axis=0)
-print("\tDropped")
+    print("\tAdded")
 
-stop_events["segment_name"] = stop_events.prev_stopCode + "_" + stop_events.stopCode
-
-
-print("Adding Durations...")
-# Add new columns with some durations.
-stop_events["dwell_duration_dest"] = (
-    stop_events.actualDeparture - stop_events.actualArrival
-).astype("timedelta64[s]")
-stop_events["dwell_duration_prev"] = (
-    stop_events.prev_actualDeparture - stop_events.prev_actualArrival
-).astype("timedelta64[s]")
-stop_events["segment_duration"] = (
-    stop_events.actualArrival - stop_events.prev_actualDeparture
-).astype("timedelta64[s]")
-stop_events["timetable_segment_duration"] = (
-    stop_events.aimedArrival - stop_events.prev_aimedDeparture
-).astype("timedelta64[s]")
-
-stop_events["full_duration"] = (
-    stop_events["dwell_duration_prev"] + stop_events["segment_duration"]
-)
-
-print("\tAdded")
-
-print("Adding Means...")
-# Add in columns for the day of the week and hour of the day that the bus arrives.
-arrival_times = pd.to_datetime(stop_events.actualArrival)
-stop_events["arrival_hour"] = arrival_times.dt.hour
-stop_events["arrival_day"] = arrival_times.dt.dayofweek
+    return stop_events
 
 
-# Create some new columns with the means of the durations
+def add_means_and_medians(stop_events):
+    print("Adding Means...")
+    # Add in columns for the day of the week and hour of the day that the bus arrives.
+    arrival_times = pd.to_datetime(stop_events.actualArrival)
+    stop_events["arrival_hour"] = arrival_times.dt.hour
+    stop_events["arrival_day"] = arrival_times.dt.dayofweek
 
-segment_code_groups = stop_events.groupby("segment_code")
+    # Create some new columns with the means of the durations
 
-mean_durations_by_segment_code = (
-    segment_code_groups["segment_duration"]
-    .mean()
-    .rename("mean_durations_by_segment_code")
-)
-stop_events = stop_events.merge(
-    mean_durations_by_segment_code.to_frame(), "left", on=["segment_code"]
-)
+    segment_code_groups = stop_events.groupby("segment_code")
 
-segment_code_and_hour_groups = stop_events.groupby(["segment_code", "arrival_hour"])
+    mean_durations_by_segment_code = (
+        segment_code_groups["segment_duration"]
+        .mean()
+        .rename("mean_durations_by_segment_code")
+    )
+    stop_events = stop_events.merge(
+        mean_durations_by_segment_code.to_frame(), "left", on=["segment_code"]
+    )
 
-mean_durations_by_segment_code_and_hour = (
-    segment_code_and_hour_groups["segment_duration"]
-    .mean()
-    .rename("mean_durations_by_segment_code_and_hour")
-)
-stop_events = stop_events.merge(
-    mean_durations_by_segment_code_and_hour.to_frame(),
-    "left",
-    left_on=["segment_code", "arrival_hour"],
-    right_on=["segment_code", "arrival_hour"],
-)
+    segment_code_and_hour_groups = stop_events.groupby(["segment_code", "arrival_hour"])
 
-segment_code_and_hour_and_day_groups = stop_events.groupby(
-    ["segment_code", "arrival_hour", "arrival_day"]
-)
+    mean_durations_by_segment_code_and_hour = (
+        segment_code_and_hour_groups["segment_duration"]
+        .mean()
+        .rename("mean_durations_by_segment_code_and_hour")
+    )
+    stop_events = stop_events.merge(
+        mean_durations_by_segment_code_and_hour.to_frame(),
+        "left",
+        left_on=["segment_code", "arrival_hour"],
+        right_on=["segment_code", "arrival_hour"],
+    )
 
-mean_durations_by_segment_code_and_hour_and_day = (
-    segment_code_and_hour_and_day_groups["segment_duration"]
-    .mean()
-    .rename("mean_durations_by_segment_code_and_hour_and_day")
-)
-stop_events = stop_events.merge(
-    mean_durations_by_segment_code_and_hour_and_day.to_frame(),
-    "left",
-    left_on=["segment_code", "arrival_hour", "arrival_day"],
-    right_index=True,
-)
+    segment_code_and_hour_and_day_groups = stop_events.groupby(
+        ["segment_code", "arrival_hour", "arrival_day"]
+    )
 
-mean_dwell_dest_durations_by_stop_code = (
-    stop_events.groupby("stopCode")["dwell_duration_dest"]
-    .mean()
-    .rename("mean_dwell_dest_durations_by_stop_code")
-)
-stop_events = stop_events.merge(
-    mean_dwell_dest_durations_by_stop_code.to_frame(), "left", on=["stopCode"]
-)
+    mean_durations_by_segment_code_and_hour_and_day = (
+        segment_code_and_hour_and_day_groups["segment_duration"]
+        .mean()
+        .rename("mean_durations_by_segment_code_and_hour_and_day")
+    )
+    stop_events = stop_events.merge(
+        mean_durations_by_segment_code_and_hour_and_day.to_frame(),
+        "left",
+        left_on=["segment_code", "arrival_hour", "arrival_day"],
+        right_index=True,
+    )
 
-mean_dwell_prev_durations_by_stop_code = mean_dwell_dest_durations_by_stop_code.rename(
-    "mean_dwell_prev_durations_by_stop_code"
-)
+    mean_dwell_dest_durations_by_stop_code = (
+        stop_events.groupby("stopCode")["dwell_duration_dest"]
+        .mean()
+        .rename("mean_dwell_dest_durations_by_stop_code")
+    )
+    stop_events = stop_events.merge(
+        mean_dwell_dest_durations_by_stop_code.to_frame(), "left", on=["stopCode"]
+    )
 
-stop_events = stop_events.merge(
-    mean_dwell_prev_durations_by_stop_code.to_frame(),
-    "left",
-    left_on=["prev_stopCode"],
-    right_on=["stopCode"],
-)
+    mean_dwell_prev_durations_by_stop_code = mean_dwell_dest_durations_by_stop_code.rename(
+        "mean_dwell_prev_durations_by_stop_code"
+    )
 
-mean_dwell_dest_by_stop_code_and_hour = (
-    stop_events.groupby(["stopCode", "arrival_hour"])["dwell_duration_dest"]
-    .mean()
-    .rename("mean_dwell_dest_by_stop_code_and_hour")
-)
-stop_events = stop_events.merge(
-    mean_dwell_dest_by_stop_code_and_hour.to_frame(),
-    "left",
-    left_on=["stopCode", "arrival_hour"],
-    right_on=["stopCode", "arrival_hour"],
-)
+    stop_events = stop_events.merge(
+        mean_dwell_prev_durations_by_stop_code.to_frame(),
+        "left",
+        left_on=["prev_stopCode"],
+        right_on=["stopCode"],
+    )
 
-mean_dwell_prev_by_stop_code_and_hour = mean_dwell_dest_by_stop_code_and_hour.rename(
-    "mean_dwell_prev_by_stop_code_and_hour"
-)
+    mean_dwell_dest_by_stop_code_and_hour = (
+        stop_events.groupby(["stopCode", "arrival_hour"])["dwell_duration_dest"]
+        .mean()
+        .rename("mean_dwell_dest_by_stop_code_and_hour")
+    )
+    stop_events = stop_events.merge(
+        mean_dwell_dest_by_stop_code_and_hour.to_frame(),
+        "left",
+        left_on=["stopCode", "arrival_hour"],
+        right_on=["stopCode", "arrival_hour"],
+    )
 
-stop_events = stop_events.merge(
-    mean_dwell_prev_by_stop_code_and_hour.to_frame(),
-    "left",
-    left_on=["prev_stopCode", "arrival_hour"],
-    right_on=["stopCode", "arrival_hour"],
-)
+    mean_dwell_prev_by_stop_code_and_hour = mean_dwell_dest_by_stop_code_and_hour.rename(
+        "mean_dwell_prev_by_stop_code_and_hour"
+    )
+
+    stop_events = stop_events.merge(
+        mean_dwell_prev_by_stop_code_and_hour.to_frame(),
+        "left",
+        left_on=["prev_stopCode", "arrival_hour"],
+        right_on=["stopCode", "arrival_hour"],
+    )
+
+    mean_dwell_dest_by_stop_code_and_hour_and_day = (
+        stop_events.groupby(["stopCode", "arrival_hour", "arrival_day"])[
+            "dwell_duration_dest"
+        ]
+        .mean()
+        .rename("mean_dwell_dest_by_stop_code_and_hour_and_day")
+    )
+    stop_events = stop_events.merge(
+        mean_dwell_dest_by_stop_code_and_hour_and_day.to_frame(),
+        "left",
+        left_on=["stopCode", "arrival_hour", "arrival_day"],
+        right_index=True,
+    )
+
+    mean_dwell_prev_by_stop_code_and_hour_and_day = mean_dwell_dest_by_stop_code_and_hour_and_day.rename(
+        "mean_dwell_prev_by_stop_code_and_hour_and_day"
+    )
+
+    stop_events = stop_events.merge(
+        mean_dwell_prev_by_stop_code_and_hour_and_day.to_frame(),
+        "left",
+        left_on=["prev_stopCode", "arrival_hour", "arrival_day"],
+        right_index=True,
+    )
+
+    print("\tAdded")
+
+    print("Adding Medians...")
+
+    # Create some new columns with the means of the durations
+    median_durations_by_segment_code = (
+        segment_code_groups["segment_duration"]
+        .median()
+        .rename("median_durations_by_segment_code")
+    )
+    stop_events = stop_events.merge(
+        median_durations_by_segment_code.to_frame(), "left", on=["segment_code"]
+    )
+
+    median_durations_by_segment_code_and_hour = (
+        segment_code_and_hour_groups["segment_duration"]
+        .median()
+        .rename("median_durations_by_segment_code_and_hour")
+    )
+    stop_events = stop_events.merge(
+        median_durations_by_segment_code_and_hour.to_frame(),
+        "left",
+        left_on=["segment_code", "arrival_hour"],
+        right_on=["segment_code", "arrival_hour"],
+    )
+
+    median_durations_by_segment_code_and_hour_and_day = (
+        segment_code_and_hour_and_day_groups["segment_duration"]
+        .median()
+        .rename("median_durations_by_segment_code_and_hour_and_day")
+    )
+    stop_events = stop_events.merge(
+        median_durations_by_segment_code_and_hour_and_day.to_frame(),
+        "left",
+        left_on=["segment_code", "arrival_hour", "arrival_day"],
+        right_index=True,
+    )
+
+    median_dwell_dest_durations_by_stop_code = (
+        stop_events.groupby("stopCode")["dwell_duration_dest"]
+        .median()
+        .rename("median_dwell_dest_durations_by_stop_code")
+    )
+    stop_events = stop_events.merge(
+        median_dwell_dest_durations_by_stop_code.to_frame(), "left", on=["stopCode"]
+    )
+
+    median_dwell_prev_durations_by_stop_code = median_dwell_dest_durations_by_stop_code.rename(
+        "median_dwell_prev_durations_by_stop_code"
+    )
+
+    stop_events = stop_events.merge(
+        median_dwell_prev_durations_by_stop_code.to_frame(),
+        "left",
+        left_on=["prev_stopCode"],
+        right_on=["stopCode"],
+    )
+
+    median_dwell_dest_by_stop_code_and_hour = (
+        stop_events.groupby(["stopCode", "arrival_hour"])["dwell_duration_dest"]
+        .median()
+        .rename("median_dwell_dest_by_stop_code_and_hour")
+    )
+    stop_events = stop_events.merge(
+        median_dwell_dest_by_stop_code_and_hour.to_frame(),
+        "left",
+        left_on=["stopCode", "arrival_hour"],
+        right_on=["stopCode", "arrival_hour"],
+    )
+
+    median_dwell_prev_by_stop_code_and_hour = median_dwell_dest_by_stop_code_and_hour.rename(
+        "median_dwell_prev_by_stop_code_and_hour"
+    )
+
+    stop_events = stop_events.merge(
+        median_dwell_prev_by_stop_code_and_hour.to_frame(),
+        "left",
+        left_on=["prev_stopCode", "arrival_hour"],
+        right_on=["stopCode", "arrival_hour"],
+    )
+
+    median_dwell_dest_by_stop_code_and_hour_and_day = (
+        stop_events.groupby(["stopCode", "arrival_hour", "arrival_day"])[
+            "dwell_duration_dest"
+        ]
+        .median()
+        .rename("median_dwell_dest_by_stop_code_and_hour_and_day")
+    )
+    stop_events = stop_events.merge(
+        median_dwell_dest_by_stop_code_and_hour_and_day.to_frame(),
+        "left",
+        left_on=["stopCode", "arrival_hour", "arrival_day"],
+        right_index=True,
+    )
+
+    median_dwell_prev_by_stop_code_and_hour_and_day = median_dwell_dest_by_stop_code_and_hour_and_day.rename(
+        "median_dwell_prev_by_stop_code_and_hour_and_day"
+    )
+
+    stop_events = stop_events.merge(
+        median_dwell_prev_by_stop_code_and_hour_and_day.to_frame(),
+        "left",
+        left_on=["prev_stopCode", "arrival_hour", "arrival_day"],
+        right_index=True,
+    )
+
+    print("\tAdded")
+
+    print("Adding full duration medians...")
+
+    median_full_durations_by_segment_code = (
+        segment_code_groups["full_duration"]
+        .median()
+        .rename("median_full_durations_by_segment_code")
+    )
+    stop_events = stop_events.merge(
+        median_full_durations_by_segment_code.to_frame(), "left", on=["segment_code"]
+    )
+
+    median_full_durations_by_segment_code_and_hour = (
+        segment_code_and_hour_groups["full_duration"]
+        .median()
+        .rename("median_full_durations_by_segment_code_and_hour")
+    )
+    stop_events = stop_events.merge(
+        median_full_durations_by_segment_code_and_hour.to_frame(),
+        "left",
+        left_on=["segment_code", "arrival_hour"],
+        right_index=True,
+    )
+
+    median_full_durations_by_segment_code_and_hour_and_day = (
+        segment_code_and_hour_and_day_groups["full_duration"]
+        .median()
+        .rename("median_full_durations_by_segment_code_and_hour_and_day")
+    )
+    stop_events = stop_events.merge(
+        median_full_durations_by_segment_code_and_hour_and_day.to_frame(),
+        "left",
+        left_on=["segment_code", "arrival_hour", "arrival_day"],
+        right_index=True,
+    )
+
+    print("\tAdded")
+
+    return stop_events
 
 
-mean_dwell_dest_by_stop_code_and_hour_and_day = (
-    stop_events.groupby(["stopCode", "arrival_hour", "arrival_day"])[
-        "dwell_duration_dest"
-    ]
-    .mean()
-    .rename("mean_dwell_dest_by_stop_code_and_hour_and_day")
-)
-stop_events = stop_events.merge(
-    mean_dwell_dest_by_stop_code_and_hour_and_day.to_frame(),
-    "left",
-    left_on=["stopCode", "arrival_hour", "arrival_day"],
-    right_index=True,
-)
+def add_diffs(stop_events):
+    print("Adding diffs for full segment medians...")
 
-mean_dwell_prev_by_stop_code_and_hour_and_day = mean_dwell_dest_by_stop_code_and_hour_and_day.rename(
-    "mean_dwell_prev_by_stop_code_and_hour_and_day"
-)
+    stop_events["diff_full_segment_and_median_by_segment_code"] = (
+        stop_events["segment_duration"]
+        + stop_events["dwell_duration_prev"]
+        - stop_events["median_full_durations_by_segment_code"]
+    )
+    stop_events["diff_full_segment_and_median_by_segment_code_and_hour_and_day"] = (
+        stop_events["segment_duration"]
+        + stop_events["dwell_duration_prev"]
+        - stop_events["median_full_durations_by_segment_code_and_hour_and_day"]
+    )
 
-stop_events = stop_events.merge(
-    mean_dwell_prev_by_stop_code_and_hour_and_day.to_frame(),
-    "left",
-    left_on=["prev_stopCode", "arrival_hour", "arrival_day"],
-    right_index=True,
-)
+    stop_events["diff_percent_full_segment_and_median_by_segment_code"] = (
+        stop_events["diff_full_segment_and_median_by_segment_code"]
+        * 100
+        / stop_events["median_full_durations_by_segment_code"]
+    )
 
-print("\tAdded")
+    stop_events[
+        "diff_percent_full_segment_and_median_by_segment_code_and_hour_and_day"
+    ] = (
+        stop_events["diff_full_segment_and_median_by_segment_code_and_hour_and_day"]
+        * 100
+        / stop_events["median_full_durations_by_segment_code_and_hour_and_day"]
+    )
 
+    print("\tAdded")
 
-print("Adding Medians...")
-
-# Create some new columns with the means of the durations
-median_durations_by_segment_code = (
-    segment_code_groups["segment_duration"]
-    .median()
-    .rename("median_durations_by_segment_code")
-)
-stop_events = stop_events.merge(
-    median_durations_by_segment_code.to_frame(), "left", on=["segment_code"]
-)
+    return stop_events
 
 
-median_durations_by_segment_code_and_hour = (
-    segment_code_and_hour_groups["segment_duration"]
-    .median()
-    .rename("median_durations_by_segment_code_and_hour")
-)
-stop_events = stop_events.merge(
-    median_durations_by_segment_code_and_hour.to_frame(),
-    "left",
-    left_on=["segment_code", "arrival_hour"],
-    right_on=["segment_code", "arrival_hour"],
-)
+def add_features(stop_events):
 
-median_durations_by_segment_code_and_hour_and_day = (
-    segment_code_and_hour_and_day_groups["segment_duration"]
-    .median()
-    .rename("median_durations_by_segment_code_and_hour_and_day")
-)
-stop_events = stop_events.merge(
-    median_durations_by_segment_code_and_hour_and_day.to_frame(),
-    "left",
-    left_on=["segment_code", "arrival_hour", "arrival_day"],
-    right_index=True,
-)
+    stop_events = add_durations(stop_events)
+    stop_events = add_means_and_medians(stop_events)
+    stop_events = add_diffs(stop_events)
 
-median_dwell_dest_durations_by_stop_code = (
-    stop_events.groupby("stopCode")["dwell_duration_dest"]
-    .median()
-    .rename("median_dwell_dest_durations_by_stop_code")
-)
-stop_events = stop_events.merge(
-    median_dwell_dest_durations_by_stop_code.to_frame(), "left", on=["stopCode"]
-)
-
-median_dwell_prev_durations_by_stop_code = median_dwell_dest_durations_by_stop_code.rename(
-    "median_dwell_prev_durations_by_stop_code"
-)
-
-stop_events = stop_events.merge(
-    median_dwell_prev_durations_by_stop_code.to_frame(),
-    "left",
-    left_on=["prev_stopCode"],
-    right_on=["stopCode"],
-)
-
-median_dwell_dest_by_stop_code_and_hour = (
-    stop_events.groupby(["stopCode", "arrival_hour"])["dwell_duration_dest"]
-    .median()
-    .rename("median_dwell_dest_by_stop_code_and_hour")
-)
-stop_events = stop_events.merge(
-    median_dwell_dest_by_stop_code_and_hour.to_frame(),
-    "left",
-    left_on=["stopCode", "arrival_hour"],
-    right_on=["stopCode", "arrival_hour"],
-)
-
-median_dwell_prev_by_stop_code_and_hour = median_dwell_dest_by_stop_code_and_hour.rename(
-    "median_dwell_prev_by_stop_code_and_hour"
-)
-
-stop_events = stop_events.merge(
-    median_dwell_prev_by_stop_code_and_hour.to_frame(),
-    "left",
-    left_on=["prev_stopCode", "arrival_hour"],
-    right_on=["stopCode", "arrival_hour"],
-)
+    return stop_events
 
 
-median_dwell_dest_by_stop_code_and_hour_and_day = (
-    stop_events.groupby(["stopCode", "arrival_hour", "arrival_day"])[
-        "dwell_duration_dest"
-    ]
-    .median()
-    .rename("median_dwell_dest_by_stop_code_and_hour_and_day")
-)
-stop_events = stop_events.merge(
-    median_dwell_dest_by_stop_code_and_hour_and_day.to_frame(),
-    "left",
-    left_on=["stopCode", "arrival_hour", "arrival_day"],
-    right_index=True,
-)
-
-median_dwell_prev_by_stop_code_and_hour_and_day = median_dwell_dest_by_stop_code_and_hour_and_day.rename(
-    "median_dwell_prev_by_stop_code_and_hour_and_day"
-)
-
-stop_events = stop_events.merge(
-    median_dwell_prev_by_stop_code_and_hour_and_day.to_frame(),
-    "left",
-    left_on=["prev_stopCode", "arrival_hour", "arrival_day"],
-    right_index=True,
-)
-
-print("\tAdded")
-
-print("Adding full duration medians...")
-
-median_full_durations_by_segment_code = (
-    segment_code_groups["full_duration"]
-    .median()
-    .rename("median_full_durations_by_segment_code")
-)
-stop_events = stop_events.merge(
-    median_full_durations_by_segment_code.to_frame(), "left", on=["segment_code"]
-)
-
-median_full_durations_by_segment_code_and_hour = (
-    segment_code_and_hour_groups["full_duration"]
-    .median()
-    .rename("median_full_durations_by_segment_code_and_hour")
-)
-stop_events = stop_events.merge(
-    median_full_durations_by_segment_code_and_hour.to_frame(),
-    "left",
-    left_on=["segment_code", "arrival_hour"],
-    right_index=True,
-)
-
-median_full_durations_by_segment_code_and_hour_and_day = (
-    segment_code_and_hour_and_day_groups["full_duration"]
-    .median()
-    .rename("median_full_durations_by_segment_code_and_hour_and_day")
-)
-stop_events = stop_events.merge(
-    median_full_durations_by_segment_code_and_hour_and_day.to_frame(),
-    "left",
-    left_on=["segment_code", "arrival_hour", "arrival_day"],
-    right_index=True,
-)
+def is_valid_file(parser, arg):
+    if not os.path.exists(arg):
+        parser.error("The file %s does not exist!" % arg)
+    else:
+        return open(arg, "r")  # return an open file handle
 
 
-print("\tAdded")
+if __name__ == "__main__":
 
-print("Adding diffs for full segment medians...")
+    parser = ArgumentParser(description="add geo features")
+    parser.add_argument(
+        "-i",
+        dest="input_filename",
+        required=True,
+        help="input csv file from a data_reader",
+        metavar="FILE",
+        type=lambda x: is_valid_file(parser, x),
+    )
 
-stop_events["diff_full_segment_and_median_by_segment_code"] = (
-    stop_events["segment_duration"]
-    + stop_events["dwell_duration_prev"]
-    - stop_events["median_full_durations_by_segment_code"]
-)
-stop_events["diff_full_segment_and_median_by_segment_code_and_hour_and_day"] = (
-    stop_events["segment_duration"]
-    + stop_events["dwell_duration_prev"]
-    - stop_events["median_full_durations_by_segment_code_and_hour_and_day"]
-)
+    parser.add_argument(
+        "-o",
+        dest="output_filename",
+        required=True,
+        help="file name and path to write to",
+        metavar="FILE",
+    )
 
-stop_events["diff_percent_full_segment_and_median_by_segment_code"] = (
-    stop_events["diff_full_segment_and_median_by_segment_code"]
-    * 100
-    / stop_events["median_full_durations_by_segment_code"]
-)
+    args = parser.parse_args()
 
-stop_events["diff_percent_full_segment_and_median_by_segment_code_and_hour_and_day"] = (
-    stop_events["diff_full_segment_and_median_by_segment_code_and_hour_and_day"]
-    * 100
-    / stop_events["median_full_durations_by_segment_code_and_hour_and_day"]
-)
+    print("Loading data...")
+    # Load in the stop_events from the previous stage in the pipeline
+    stop_events = pd.read_csv(args.input_filename, parse_dates=[1, 5, 6, 18, 19])
 
-print("\tAdded")
+    # Force it to treat all the times as actual times.
+    stop_events["aimedArrival"] = stop_events["aimedArrival"].astype("datetime64[ns]")
+    stop_events["aimedDeparture"] = stop_events["aimedDeparture"].astype(
+        "datetime64[ns]"
+    )
+    stop_events["prev_aimedArrival"] = stop_events["prev_aimedArrival"].astype(
+        "datetime64[ns]"
+    )
+    stop_events["prev_aimedDeparture"] = stop_events["prev_aimedDeparture"].astype(
+        "datetime64[ns]"
+    )
+    stop_events["prev_actualArrival"] = stop_events["prev_actualArrival"].astype(
+        "datetime64[ns]"
+    )
+    stop_events["prev_actualDeparture"] = stop_events["prev_actualDeparture"].astype(
+        "datetime64[ns]"
+    )
 
-print("Writing output file...")
+    print("\tLoaded")
 
-stop_events.to_csv("Intermediate_Data/stop_events_with_all_features.csv", index=False)
+    print("Dropping nans...")
+    # Drop any rows with nan or empty sections.
+    stop_events = stop_events.dropna(axis=0)
+    print("\tDropped")
 
-print("\tWritten")
+    stop_events = add_features(stop_events)
+
+    print("Writing output file...")
+
+    # Make sure the folder is there before we write the file to it.
+    Path(args.output_filename).parent.mkdir(parents=True, exist_ok=True)
+
+    stop_events.to_csv(args.output_filename, index=False)
+
+    print("\tWritten")
