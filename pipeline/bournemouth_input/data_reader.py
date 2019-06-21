@@ -3,6 +3,8 @@ import pandas as pd
 import datetime
 from tqdm import tqdm
 
+from pathlib import Path
+
 
 def copy_to_prev(df, to_row_index, from_row_index):
 
@@ -128,6 +130,7 @@ for name, group in tqdm(single_patterns):
 
         # And assign the timing points
         group["timingPoint"] = timing_points
+        group["prev_timingPoint"] = group["timingPoint"].shift(1).fillna(0)
 
         # And set every stop except the first as a match
         group["match"] = True
@@ -200,6 +203,8 @@ for name, group in tqdm(single_patterns):
         prev_stop_code = stop_code
         prev_index_into_group = index_into_group
 
+    group["prev_timingPoint"] = group["timingPoint"].shift(1).fillna(0)
+
     to_write_list.append(group)
 
     # print(".", end="")
@@ -216,5 +221,12 @@ to_write["segment_code"] = (
     + to_write.timingPoint.astype(str)
 )
 
+to_write["segment_name"] = to_write.prev_stopCode + "_" + to_write.stopCode
+
+# Make sure the folder is there before we write the file to it.
+Path("data_files/B/stop_events.csv").parent.mkdir(parents=True, exist_ok=True)
+
 # Use match as a mask as it's already boolean
-to_write[to_write.match].to_csv("Intermediate_Data/stop_events_debug.csv", index=False)
+to_write[to_write.match].drop(["match", "workCode", "tripCode"], axis=1).to_csv(
+    "data_files/B/stop_events.csv", index=False
+)
