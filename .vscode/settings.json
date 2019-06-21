@@ -4,12 +4,18 @@
     "cSpell.words": [
         "astype",
         "dayofweek",
+        "dlat",
+        "dlon",
+        "dropna",
         "fillna",
         "fliplr",
         "groupby",
         "iloc",
         "iterrows",
+        "mkdir",
+        "nans",
         "nrows",
+        "tolist",
         "tqdm",
         "workid"
     ]
