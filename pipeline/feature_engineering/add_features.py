@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import datetime
 
+import feather
+
 from tqdm import tqdm
 
 from argparse import ArgumentParser
@@ -42,8 +44,11 @@ def add_means_and_medians(stop_events):
     stop_events["arrival_day"] = arrival_times.dt.dayofweek
 
     # Create some new columns with the means of the durations
+    # We only use the stop events with train=true when making
+    # the means and medians but we then apply those values to
+    # all events including test
 
-    segment_code_groups = stop_events.groupby("segment_code")
+    segment_code_groups = stop_events[stop_events["train"]].groupby("segment_code")
 
     mean_durations_by_segment_code = (
         segment_code_groups["segment_duration"]
@@ -54,7 +59,9 @@ def add_means_and_medians(stop_events):
         mean_durations_by_segment_code.to_frame(), "left", on=["segment_code"]
     )
 
-    segment_code_and_hour_groups = stop_events.groupby(["segment_code", "arrival_hour"])
+    segment_code_and_hour_groups = stop_events[stop_events["train"]].groupby(
+        ["segment_code", "arrival_hour"]
+    )
 
     mean_durations_by_segment_code_and_hour = (
         segment_code_and_hour_groups["segment_duration"]
@@ -68,7 +75,7 @@ def add_means_and_medians(stop_events):
         right_on=["segment_code", "arrival_hour"],
     )
 
-    segment_code_and_hour_and_day_groups = stop_events.groupby(
+    segment_code_and_hour_and_day_groups = stop_events[stop_events["train"]].groupby(
         ["segment_code", "arrival_hour", "arrival_day"]
     )
 
@@ -85,7 +92,8 @@ def add_means_and_medians(stop_events):
     )
 
     mean_dwell_dest_durations_by_stop_code = (
-        stop_events.groupby("stopCode")["dwell_duration_dest"]
+        stop_events[stop_events["train"]]
+        .groupby("stopCode")["dwell_duration_dest"]
         .mean()
         .rename("mean_dwell_dest_durations_by_stop_code")
     )
@@ -105,7 +113,8 @@ def add_means_and_medians(stop_events):
     )
 
     mean_dwell_dest_by_stop_code_and_hour = (
-        stop_events.groupby(["stopCode", "arrival_hour"])["dwell_duration_dest"]
+        stop_events[stop_events["train"]]
+        .groupby(["stopCode", "arrival_hour"])["dwell_duration_dest"]
         .mean()
         .rename("mean_dwell_dest_by_stop_code_and_hour")
     )
@@ -128,9 +137,8 @@ def add_means_and_medians(stop_events):
     )
 
     mean_dwell_dest_by_stop_code_and_hour_and_day = (
-        stop_events.groupby(["stopCode", "arrival_hour", "arrival_day"])[
-            "dwell_duration_dest"
-        ]
+        stop_events[stop_events["train"]]
+        .groupby(["stopCode", "arrival_hour", "arrival_day"])["dwell_duration_dest"]
         .mean()
         .rename("mean_dwell_dest_by_stop_code_and_hour_and_day")
     )
@@ -191,7 +199,8 @@ def add_means_and_medians(stop_events):
     )
 
     median_dwell_dest_durations_by_stop_code = (
-        stop_events.groupby("stopCode")["dwell_duration_dest"]
+        stop_events[stop_events["train"]]
+        .groupby("stopCode")["dwell_duration_dest"]
         .median()
         .rename("median_dwell_dest_durations_by_stop_code")
     )
@@ -211,7 +220,8 @@ def add_means_and_medians(stop_events):
     )
 
     median_dwell_dest_by_stop_code_and_hour = (
-        stop_events.groupby(["stopCode", "arrival_hour"])["dwell_duration_dest"]
+        stop_events[stop_events["train"]]
+        .groupby(["stopCode", "arrival_hour"])["dwell_duration_dest"]
         .median()
         .rename("median_dwell_dest_by_stop_code_and_hour")
     )
@@ -234,9 +244,8 @@ def add_means_and_medians(stop_events):
     )
 
     median_dwell_dest_by_stop_code_and_hour_and_day = (
-        stop_events.groupby(["stopCode", "arrival_hour", "arrival_day"])[
-            "dwell_duration_dest"
-        ]
+        stop_events[stop_events["train"]]
+        .groupby(["stopCode", "arrival_hour", "arrival_day"])["dwell_duration_dest"]
         .median()
         .rename("median_dwell_dest_by_stop_code_and_hour_and_day")
     )
@@ -346,34 +355,37 @@ def is_valid_file(parser, arg):
     if not os.path.exists(arg):
         parser.error("The file %s does not exist!" % arg)
     else:
-        return open(arg, "r")  # return an open file handle
+        return arg  # return a filename
 
 
 if __name__ == "__main__":
 
-    parser = ArgumentParser(description="add geo features")
+    parser = ArgumentParser(description="add averages features")
     parser.add_argument(
         "-i",
         dest="input_filename",
         required=True,
-        help="input csv file from a data_reader",
+        help="input feather file from a previous step",
         metavar="FILE",
         type=lambda x: is_valid_file(parser, x),
     )
 
-    parser.add_argument(
-        "-o",
-        dest="output_filename",
-        required=True,
-        help="file name and path to write to",
-        metavar="FILE",
-    )
+    # parser.add_argument(
+    #     "-o",
+    #     dest="output_filename",
+    #     required=True,
+    #     help="file name and path to write to",
+    #     metavar="FILE",
+    # )
 
     args = parser.parse_args()
 
+    from_path = Path(args.input_filename)
+
     print("Loading data...")
     # Load in the stop_events from the previous stage in the pipeline
-    stop_events = pd.read_csv(args.input_filename, parse_dates=[1, 5, 6, 18, 19])
+    stop_events = feather.read_dataframe(args.input_filename)
+    stop_events = stop_events.set_index("index")
 
     # Force it to treat all the times as actual times.
     stop_events["aimedArrival"] = stop_events["aimedArrival"].astype("datetime64[ns]")
@@ -393,20 +405,27 @@ if __name__ == "__main__":
         "datetime64[ns]"
     )
 
-    print("\tLoaded")
+    # Ensure that the segment code is useing the previous
+    # timing point not the current one as we use  the previous
+    # dwell time.
+    stop_events["segment_code"] = (
+        stop_events.prev_stopCode
+        + "_"
+        + stop_events.stopCode
+        + "_"
+        + stop_events.prev_timingPoint.astype(str)
+    )
 
-    print("Dropping nans...")
-    # Drop any rows with nan or empty sections.
-    stop_events = stop_events.dropna(axis=0)
-    print("\tDropped")
+    print("\tLoaded")
 
     stop_events = add_features(stop_events)
 
     print("Writing output file...")
 
-    # Make sure the folder is there before we write the file to it.
-    Path(args.output_filename).parent.mkdir(parents=True, exist_ok=True)
+    stop_events = stop_events.reset_index()
 
-    stop_events.to_csv(args.output_filename, index=False)
+    stop_events.to_feather(
+        str(from_path.parent) + "/stop_events_with_geo_train_test_averages.feather"
+    )
 
     print("\tWritten")
