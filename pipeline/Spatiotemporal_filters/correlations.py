@@ -5,137 +5,63 @@ from argparse import ArgumentParser
 import os.path
 from pathlib import Path
 
+import feather
 
-def find_correlations(time_series, interval):
 
-    arrival_name = "arrival_" + interval
+def find_direct_correlations(time_series):
 
-    time_series[arrival_name] = time_series[arrival_name].astype("datetime64[ns]")
-
-    time_series.set_index(arrival_name)
+    print("Calculating direct correlations")
 
     correlations = time_series.corr(method="pearson", min_periods=10)
     correlations = correlations.fillna(value=float("-inf"))
 
+    # We ignore the best value as it will be itself
+    best_correlations_names = np.fliplr(
+        correlations.columns[np.argsort(correlations.values, axis=1)[:, -31:-1]]
+    )
+
+    # We ignore the best value as it will be itself
+    best_correlations_values = np.fliplr(
+        np.sort(correlations.values, axis=1)[:, -31:-1]
+    )
+
     best_correlations = pd.DataFrame(
-        np.fliplr(
-            correlations.columns[np.argsort(correlations.values, axis=1)[:, -31:-1]]
-        ),
+        np.column_stack([best_correlations_names, best_correlations_values]),
         index=correlations.index,
     )
+
+    print("\tCalculated")
 
     return best_correlations
 
 
-# print("Loading data...")
-# # Load in the stop_events from the previous stage in the pipeline
-# time_series_10mins_chd = pd.read_csv(
-#     "Intermediate_Data/diff_10mins_code_hour_day_percent_full_segment_time_series.csv"
-# )
+def find_offset_correlations(time_series):
 
-# time_series_10mins_c = pd.read_csv(
-#     "Intermediate_Data/diff_10mins_code_percent_full_segment_time_series.csv"
-# )
+    print("Calculating offset correlations")
 
-# time_series_1hour_chd = pd.read_csv(
-#     "Intermediate_Data/diff_1hour_code_hour_day_percent_full_segment_time_series.csv"
-# )
+    time_wide = pd.concat([time_series, time_series.shift(1)], axis=1)
 
-# time_series_1hour_c = pd.read_csv(
-#     "Intermediate_Data/diff_1hour_code_percent_full_segment_time_series.csv"
-# )
+    correlations = time_wide.corr(method="pearson", min_periods=10)
+    correlations = correlations.fillna(value=float("-inf"))
 
+    # We only want the top right quater of the correlations as that relates to the
+    # correlations between the direct and the offset values.
+    correlations = correlations.iloc[: time_series.shape[1], time_series.shape[1] :]
 
-# time_series_10mins_chd["arrival_10mins"] = time_series_10mins_chd[
-#     "arrival_10mins"
-# ].astype("datetime64[ns]")
+    best_correlations_names = np.fliplr(
+        correlations.columns[np.argsort(correlations.values, axis=1)[:, -30:]]
+    )
 
-# time_series_10mins_c["arrival_10mins"] = time_series_10mins_c["arrival_10mins"].astype(
-#     "datetime64[ns]"
-# )
+    best_correlations_values = np.fliplr(np.sort(correlations.values, axis=1)[:, -30:])
 
-# time_series_1hour_chd["arrival_1hour"] = time_series_1hour_chd["arrival_1hour"].astype(
-#     "datetime64[ns]"
-# )
+    best_correlations = pd.DataFrame(
+        np.column_stack([best_correlations_names, best_correlations_values]),
+        index=correlations.index,
+    )
 
-# time_series_1hour_c["arrival_1hour"] = time_series_1hour_c["arrival_1hour"].astype(
-#     "datetime64[ns]"
-# )
+    print("\tCalculated")
 
-# time_series_10mins_chd.set_index("arrival_10mins")
-# time_series_10mins_c.set_index("arrival_10mins")
-
-# time_series_1hour_chd.set_index("arrival_1hour")
-# time_series_1hour_c.set_index("arrival_1hour")
-
-# print("\tLoaded")
-
-# print("Calculating correlations...")
-
-# correlations_10mins_chd = time_series_10mins_chd.corr(method="pearson", min_periods=10)
-# correlations_10mins_chd = correlations_10mins_chd.fillna(value=float("-inf"))
-
-# correlations_10mins_c = time_series_10mins_c.corr(method="pearson", min_periods=10)
-# correlations_10mins_c = correlations_10mins_c.fillna(value=float("-inf"))
-
-# correlations_1hour_chd = time_series_1hour_chd.corr(method="pearson", min_periods=10)
-# correlations_1hour_chd = correlations_1hour_chd.fillna(value=float("-inf"))
-
-# correlations_1hour_c = time_series_1hour_c.corr(method="pearson", min_periods=10)
-# correlations_1hour_c = correlations_1hour_c.fillna(value=float("-inf"))
-
-
-# print("\tCalculated")
-
-# print("Writing output file...")
-
-# best_correlations_10mins_chd = pd.DataFrame(
-#     np.fliplr(
-#         correlations_10mins_chd.columns[
-#             np.argsort(correlations_10mins_chd.values, axis=1)[:, -31:-1]
-#         ]
-#     ),
-#     index=correlations_10mins_chd.index,
-# )
-
-# best_correlations_10mins_c = pd.DataFrame(
-#     np.fliplr(
-#         correlations_10mins_c.columns[
-#             np.argsort(correlations_10mins_c.values, axis=1)[:, -31:-1]
-#         ]
-#     ),
-#     index=correlations_10mins_c.index,
-# )
-
-# best_correlations_1hour_chd = pd.DataFrame(
-#     np.fliplr(
-#         correlations_1hour_chd.columns[
-#             np.argsort(correlations_1hour_chd.values, axis=1)[:, -31:-1]
-#         ]
-#     ),
-#     index=correlations_1hour_chd.index,
-# )
-
-# best_correlations_1hour_c = pd.DataFrame(
-#     np.fliplr(
-#         correlations_1hour_c.columns[
-#             np.argsort(correlations_1hour_c.values, axis=1)[:, -31:-1]
-#         ]
-#     ),
-#     index=correlations_1hour_c.index,
-# )
-
-# best_correlations_10mins_chd.to_csv(
-#     "Intermediate_Data/best_correlations_10mins_chd.csv"
-# )
-
-# best_correlations_10mins_c.to_csv("Intermediate_Data/best_correlations_10mins_c.csv")
-
-# best_correlations_1hour_chd.to_csv("Intermediate_Data/best_correlations_1hour_chd.csv")
-
-# best_correlations_1hour_c.to_csv("Intermediate_Data/best_correlations_1hour_c.csv")
-
-# print("\tWritten")
+    return best_correlations
 
 
 def is_valid_file(parser, arg):
@@ -145,6 +71,28 @@ def is_valid_file(parser, arg):
         return arg  # return filename
 
 
+def write_output(best_correlations, offset=False):
+    print("Writing output file...")
+
+    filename = "/best_correlations_"
+
+    if offset:
+        filename += "offset_"
+
+    filename += str(list(from_path.parts)[-2]) + "_code"
+
+    if "code_hour_day" in str(from_path.stem):
+        filename += "_hour_day"
+
+    filename += ".feather"
+
+    best_correlations = best_correlations.reset_index()
+    best_correlations.columns = map(str, best_correlations.columns)
+    best_correlations.to_feather(str(from_path.parent) + filename)
+
+    print("\tWritten")
+
+
 if __name__ == "__main__":
 
     parser = ArgumentParser(description="Calculate correlations")
@@ -152,7 +100,7 @@ if __name__ == "__main__":
         "-i",
         dest="input_filename",
         required=True,
-        help="input csv file from a data_reader",
+        help="input feather file from a previous stage",
         metavar="FILE",
         type=lambda x: is_valid_file(parser, x),
     )
@@ -161,23 +109,17 @@ if __name__ == "__main__":
 
     from_path = Path(args.input_filename)
 
-    print("Loading data...")
+    print(f"Loading data...{str(args.input_filename)}")
     # Load in the time_series from the previous stage in the pipeline
-    time_series = pd.read_csv(args.input_filename)
+    time_series = feather.read_dataframe(args.input_filename)
+    time_series = time_series.set_index(time_series.columns[0])
 
     print("\tLoaded")
 
-    best_correlations = find_correlations(time_series, str(list(from_path.parts)[-2]))
+    best_correlations = find_direct_correlations(time_series)
 
-    print("Writing output file...")
+    write_output(best_correlations)
 
-    filename = "/best_correlations_" + str(list(from_path.parts)[-2]) + "_code"
+    best_correlations = find_offset_correlations(time_series)
 
-    if "code_hour_day" in str(from_path.stem):
-        filename += "_hour_day"
-
-    filename += ".csv"
-
-    best_correlations.to_csv(str(from_path.parent) + filename)
-
-    print("\tWritten")
+    write_output(best_correlations, True)
