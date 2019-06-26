@@ -32,7 +32,10 @@ def filter_overtakes(stop_events):
 
     print("Calculating Overtakes...")
 
-    stop_events = stop_events.assign(overtaken_once=False, overtaken_twice=False)
+    stop_events = stop_events.assign(
+        overtaken_once=False,
+        # overtaken_twice=False
+    )
 
     # Find every time any bus did that segment on that day with that public name (route name)
     overtake_opportunities = stop_events.groupby(["date", "segment_name", "publicName"])
@@ -47,7 +50,7 @@ def filter_overtakes(stop_events):
 
         overtaken = buses_in_order[
             buses_in_order["actualArrival"]
-            > one_after["actualArrival"]  # + pd.Timedelta("1 minute")
+            > one_after["actualArrival"] + pd.Timedelta("1 minute")
         ]
 
         if overtaken.shape[0] == 0:
@@ -55,16 +58,16 @@ def filter_overtakes(stop_events):
 
         stop_events.loc[overtaken.index, "overtaken_once"] = True
 
-        two_after = buses_in_order.shift(-2)
+        # two_after = buses_in_order.shift(-2)
 
-        overtaken_twice = buses_in_order[
-            buses_in_order["actualArrival"] > two_after["actualArrival"]
-        ]
+        # overtaken_twice = buses_in_order[
+        #     buses_in_order["actualArrival"] > two_after["actualArrival"]
+        # ]
 
-        if overtaken_twice.shape[0] == 0:
-            continue
+        # if overtaken_twice.shape[0] == 0:
+        #     continue
 
-        stop_events.loc[overtaken_twice.index, "overtaken_twice"] = True
+        # stop_events.loc[overtaken_twice.index, "overtaken_twice"] = True
 
     print("\tCalculated")
 
@@ -98,13 +101,13 @@ if __name__ == "__main__":
         metavar="FILE",
     )
 
-    parser.add_argument(
-        "-twice",
-        dest="output_filename_twice",
-        required=True,
-        help="overtaken twice file name and path to write to",
-        metavar="FILE",
-    )
+    # parser.add_argument(
+    #     "-twice",
+    #     dest="output_filename_twice",
+    #     required=True,
+    #     help="overtaken twice file name and path to write to",
+    #     metavar="FILE",
+    # )
 
     args = parser.parse_args()
 
@@ -135,16 +138,20 @@ if __name__ == "__main__":
 
     # Make sure the folder is there before we write the file to it.
     Path(args.output_filename_once).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.output_filename_twice).parent.mkdir(parents=True, exist_ok=True)
+    # Path(args.output_filename_twice).parent.mkdir(parents=True, exist_ok=True)
 
     # We want to write all the rows where overtaken_once is FALSE so we use ~ to invert
     stop_events[~stop_events["overtaken_once"]].drop(
-        ["overtaken_once", "overtaken_twice"], axis=1
+        [
+            "overtaken_once",
+            # "overtaken_twice"
+        ],
+        axis=1,
     ).to_csv(args.output_filename_once, index=False)
 
-    # We want to write all the rows where overtaken_twice is FALSE so we use ~ to invert
-    stop_events[~stop_events["overtaken_twice"]].drop(
-        ["overtaken_once", "overtaken_twice"], axis=1
-    ).to_csv(args.output_filename_twice, index=False)
+    # # We want to write all the rows where overtaken_twice is FALSE so we use ~ to invert
+    # stop_events[~stop_events["overtaken_twice"]].drop(
+    #     ["overtaken_once", "overtaken_twice"], axis=1
+    # ).to_csv(args.output_filename_twice, index=False)
 
     print("\tWritten")
