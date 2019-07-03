@@ -23,42 +23,42 @@ def pivot(stop_events):
         index="arrival_5mins",
         columns="segment_code",
         values="diff_percent_full_segment_and_median_by_segment_code_and_hour_and_day",
-        aggfunc=np.mean,
+        aggfunc=np.median,
     )
 
     pivoted_5mins_code = stop_events[stop_events["train"]].pivot_table(
         index="arrival_5mins",
         columns="segment_code",
         values="diff_percent_full_segment_and_median_by_segment_code",
-        aggfunc=np.mean,
+        aggfunc=np.median,
     )
 
     pivoted_10mins_code_hour_day = stop_events[stop_events["train"]].pivot_table(
         index="arrival_10mins",
         columns="segment_code",
         values="diff_percent_full_segment_and_median_by_segment_code_and_hour_and_day",
-        aggfunc=np.mean,
+        aggfunc=np.median,
     )
 
     pivoted_10mins_code = stop_events[stop_events["train"]].pivot_table(
         index="arrival_10mins",
         columns="segment_code",
         values="diff_percent_full_segment_and_median_by_segment_code",
-        aggfunc=np.mean,
+        aggfunc=np.median,
     )
 
     pivoted_1hour_code_hour_day = stop_events[stop_events["train"]].pivot_table(
         index="arrival_1hour",
         columns="segment_code",
         values="diff_percent_full_segment_and_median_by_segment_code_and_hour_and_day",
-        aggfunc=np.mean,
+        aggfunc=np.median,
     )
 
     pivoted_1hour_code = stop_events[stop_events["train"]].pivot_table(
         index="arrival_1hour",
         columns="segment_code",
         values="diff_percent_full_segment_and_median_by_segment_code",
-        aggfunc=np.mean,
+        aggfunc=np.median,
     )
 
     print("\tpivoted")
@@ -122,10 +122,25 @@ if __name__ == "__main__":
 
     path_5mins.mkdir(parents=True, exist_ok=True)
 
+    interpolated_pivoted_5mins_code_hour_day = pivoted_5mins_code_hour_day.interpolate(
+        method="time", axis=0
+    )
+    interpolated_pivoted_5mins_code = pivoted_5mins_code.interpolate(
+        method="time", axis=0
+    )
+
     pivoted_5mins_code_hour_day = pivoted_5mins_code_hour_day.reset_index()
     pivoted_5mins_code_hour_day.to_feather(
         str(path_5mins)
         + "/diff_percent_from_code_hour_day_-_full_segment_time_series.feather"
+    )
+
+    interpolated_pivoted_5mins_code_hour_day = (
+        interpolated_pivoted_5mins_code_hour_day.reset_index()
+    )
+    interpolated_pivoted_5mins_code_hour_day.to_feather(
+        str(path_5mins)
+        + "/interp_diff_percent_from_code_hour_day_-_full_segment_time_series.feather"
     )
 
     pivoted_5mins_code = pivoted_5mins_code.reset_index()
@@ -133,9 +148,22 @@ if __name__ == "__main__":
         str(path_5mins) + "/diff_percent_from_code_-_full_segment_time_series.feather"
     )
 
+    interpolated_pivoted_5mins_code = interpolated_pivoted_5mins_code.reset_index()
+    interpolated_pivoted_5mins_code.to_feather(
+        str(path_5mins)
+        + "/interp_diff_percent_from_code_-_full_segment_time_series.feather"
+    )
+
     path_10mins = to_write_path / Path("10mins")
 
     path_10mins.mkdir(parents=True, exist_ok=True)
+
+    interpolated_pivoted_10mins_code_hour_day = pivoted_10mins_code_hour_day.interpolate(
+        method="time", axis=0
+    )
+    interpolated_pivoted_10mins_code = pivoted_10mins_code.interpolate(
+        method="time", axis=0
+    )
 
     pivoted_10mins_code_hour_day = pivoted_10mins_code_hour_day.reset_index()
     pivoted_10mins_code_hour_day.to_feather(
@@ -143,14 +171,35 @@ if __name__ == "__main__":
         + "/diff_percent_from_code_hour_day_-_full_segment_time_series.feather"
     )
 
+    interpolated_pivoted_10mins_code_hour_day = (
+        interpolated_pivoted_10mins_code_hour_day.reset_index()
+    )
+    interpolated_pivoted_10mins_code_hour_day.to_feather(
+        str(path_10mins)
+        + "/interp_diff_percent_from_code_hour_day_-_full_segment_time_series.feather"
+    )
+
     pivoted_10mins_code = pivoted_10mins_code.reset_index()
     pivoted_10mins_code.to_feather(
         str(path_10mins) + "/diff_percent_from_code_-_full_segment_time_series.feather"
     )
 
+    interpolated_pivoted_10mins_code = interpolated_pivoted_10mins_code.reset_index()
+    interpolated_pivoted_10mins_code.to_feather(
+        str(path_10mins)
+        + "/interp_diff_percent_from_code_-_full_segment_time_series.feather"
+    )
+
     path_1hour = to_write_path / Path("1hour")
 
     path_1hour.mkdir(parents=True, exist_ok=True)
+
+    interpolated_pivoted_1hour_code_hour_day = pivoted_1hour_code_hour_day.interpolate(
+        method="time", axis=0
+    )
+    interpolated_pivoted_1hour_code = pivoted_1hour_code.interpolate(
+        method="time", axis=0
+    )
 
     pivoted_1hour_code_hour_day = pivoted_1hour_code_hour_day.reset_index()
     pivoted_1hour_code_hour_day.to_feather(
@@ -161,6 +210,20 @@ if __name__ == "__main__":
     pivoted_1hour_code = pivoted_1hour_code.reset_index()
     pivoted_1hour_code.to_feather(
         str(path_1hour) + "/diff_percent_from_code_-_full_segment_time_series.feather"
+    )
+
+    interpolated_pivoted_1hour_code_hour_day = (
+        interpolated_pivoted_1hour_code_hour_day.reset_index()
+    )
+    interpolated_pivoted_1hour_code_hour_day.to_feather(
+        str(path_1hour)
+        + "/interp_diff_percent_from_code_hour_day_-_full_segment_time_series.feather"
+    )
+
+    interpolated_pivoted_1hour_code = interpolated_pivoted_1hour_code.reset_index()
+    interpolated_pivoted_1hour_code.to_feather(
+        str(path_1hour)
+        + "/interp_diff_percent_from_code_-_full_segment_time_series.feather"
     )
 
     print("\tWritten")
