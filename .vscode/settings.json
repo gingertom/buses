@@ -13,6 +13,7 @@
         "fliplr",
         "groupby",
         "iloc",
+        "interp",
         "isin",
         "iterrows",
         "mape",
