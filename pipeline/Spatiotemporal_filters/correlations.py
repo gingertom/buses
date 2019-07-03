@@ -12,8 +12,12 @@ def find_direct_correlations(time_series):
 
     print("Calculating direct correlations")
 
-    correlations = time_series.corr(method="pearson", min_periods=10)
-    correlations = correlations.fillna(value=float("-inf"))
+    # Need at least a 1 percent overlap in periods
+    correlations = time_series.corr(
+        method="pearson", min_periods=int(time_series.shape[0] / 100)
+    )
+
+    correlations = correlations.fillna(value=float("-1.1"))
 
     # We ignore the best value as it will be itself
     best_correlations_names = np.fliplr(
@@ -41,8 +45,11 @@ def find_offset_correlations(time_series):
 
     time_wide = pd.concat([time_series, time_series.shift(1)], axis=1)
 
-    correlations = time_wide.corr(method="pearson", min_periods=10)
-    correlations = correlations.fillna(value=float("-inf"))
+    # Need at least a 1 percent overlap in periods
+    correlations = time_wide.corr(
+        method="pearson", min_periods=int(time_series.shape[0] / 100)
+    )
+    correlations = correlations.fillna(value=float("-1.1"))
 
     # We only want the top right quater of the correlations as that relates to the
     # correlations between the direct and the offset values.
@@ -64,6 +71,92 @@ def find_offset_correlations(time_series):
     return best_correlations
 
 
+def find_high_traffic_correlations(time_series, min_fraction):
+
+    print("Calculating high traffic correlations")
+
+    # Only segment codes that have entries for at least 1/(fraction)
+    # of all the time intervals.
+    popular_segments = time_series.columns[
+        (time_series.count() > (time_series.shape[0] / min_fraction))
+    ].values
+
+    time_wide = pd.concat([time_series, time_series[popular_segments]], axis=1)
+
+    # Need at least a 1 percent overlap in periods
+    correlations = time_wide.corr(
+        method="pearson", min_periods=int(time_series.shape[0] / 100)
+    )
+    correlations = correlations.fillna(value=float("-1.1"))
+
+    # We only want the top right quater of the correlations as that relates to the
+    # correlations between the direct and the offset values.
+    correlations = correlations.iloc[: time_series.shape[1], time_series.shape[1] :]
+
+    best_correlations_names = np.fliplr(
+        correlations.columns[np.argsort(correlations.values, axis=1)[:, -31:]]
+    )
+
+    mask = best_correlations_names[:, 0] == correlations.index
+
+    best_correlations_names[mask] = np.roll(best_correlations_names[mask], -1, axis=1)
+
+    best_correlations_values = np.fliplr(np.sort(correlations.values, axis=1)[:, -31:])
+
+    best_correlations_values[mask] = np.roll(best_correlations_values[mask], -1, axis=1)
+
+    best_correlations = pd.DataFrame(
+        np.column_stack(
+            [best_correlations_names[:, :30], best_correlations_values[:, :30]]
+        ),
+        index=correlations.index,
+    )
+
+    print("\tCalculated")
+
+    return best_correlations
+
+
+def find_high_traffic_offset_correlations(time_series, min_fraction):
+
+    print("Calculating high traffic correlations")
+
+    # Only segment codes that have entries for at least 1/(fraction)
+    # of all the time intervals.
+    popular_segments = time_series.columns[
+        (time_series.count() > (time_series.shape[0] / min_fraction))
+    ].values
+
+    time_wide = pd.concat([time_series, time_series[popular_segments].shift(1)], axis=1)
+
+    # Need at least a 1 percent overlap in periods
+    correlations = time_wide.corr(
+        method="pearson", min_periods=int(time_series.shape[0] / 100)
+    )
+    correlations = correlations.fillna(value=float("-1.1"))
+
+    # We only want the top right quater of the correlations as that relates to the
+    # correlations between the direct and the offset values.
+    correlations = correlations.iloc[: time_series.shape[1], time_series.shape[1] :]
+
+    best_correlations_names = np.fliplr(
+        correlations.columns[np.argsort(correlations.values, axis=1)[:, -30:]]
+    )
+
+    best_correlations_values = np.fliplr(np.sort(correlations.values, axis=1)[:, -30:])
+
+    best_correlations = pd.DataFrame(
+        np.column_stack(
+            [best_correlations_names[:, :30], best_correlations_values[:, :30]]
+        ),
+        index=correlations.index,
+    )
+
+    print("\tCalculated")
+
+    return best_correlations
+
+
 def is_valid_file(parser, arg):
     if not os.path.exists(arg):
         parser.error("The file %s does not exist!" % arg)
@@ -71,10 +164,18 @@ def is_valid_file(parser, arg):
         return arg  # return filename
 
 
-def write_output(best_correlations, offset=False):
+def write_output(
+    best_correlations, offset=False, interpolated=False, high_traffic=False
+):
     print("Writing output file...")
 
     filename = "/best_correlations_"
+
+    if interpolated:
+        filename += "interp_"
+
+    if high_traffic:
+        filename += "high_traffic_"
 
     if offset:
         filename += "offset_"
@@ -116,10 +217,20 @@ if __name__ == "__main__":
 
     print("\tLoaded")
 
+    interp = "interp_" in str(args.input_filename)
+
     best_correlations = find_direct_correlations(time_series)
 
-    write_output(best_correlations)
+    write_output(best_correlations, False, interp)
 
     best_correlations = find_offset_correlations(time_series)
 
-    write_output(best_correlations, True)
+    write_output(best_correlations, True, interp)
+
+    best_correlations = find_high_traffic_correlations(time_series, 4)
+
+    write_output(best_correlations, False, interp, True)
+
+    best_correlations = find_high_traffic_offset_correlations(time_series, 4)
+
+    write_output(best_correlations, True, interp, True)
