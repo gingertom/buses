@@ -313,13 +313,11 @@ def add_diffs(stop_events):
     print("Adding diffs for full segment medians...")
 
     stop_events["diff_full_segment_and_median_by_segment_code"] = (
-        stop_events["segment_duration"]
-        + stop_events["dwell_duration_prev"]
+        stop_events["full_duration"]
         - stop_events["median_full_durations_by_segment_code"]
     )
     stop_events["diff_full_segment_and_median_by_segment_code_and_hour_and_day"] = (
-        stop_events["segment_duration"]
-        + stop_events["dwell_duration_prev"]
+        stop_events["full_duration"]
         - stop_events["median_full_durations_by_segment_code_and_hour_and_day"]
     )
 
