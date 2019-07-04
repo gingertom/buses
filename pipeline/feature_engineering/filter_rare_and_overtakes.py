@@ -13,11 +13,11 @@ def filter_rare(stop_events):
 
     print("Calculating rare segments...")
 
-    segment_counts = stop_events.groupby("segment_name").size()
+    segment_counts = stop_events.groupby("segment_code").size()
 
     filtered_stop_events = stop_events.drop(
         stop_events[
-            stop_events["segment_name"].isin(
+            stop_events["segment_code"].isin(
                 segment_counts[segment_counts < 120].index.values
             )
         ].index
