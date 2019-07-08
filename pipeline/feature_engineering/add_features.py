@@ -335,6 +335,29 @@ def add_diffs(stop_events):
         / stop_events["median_full_durations_by_segment_code_and_hour_and_day"]
     )
 
+    # And now for just segments:
+
+    stop_events["diff_segment_and_median_by_segment_code"] = (
+        stop_events["segment_duration"]
+        - stop_events["median_durations_by_segment_code"]
+    )
+    stop_events["diff_segment_and_median_by_segment_code_and_hour_and_day"] = (
+        stop_events["segment_duration"]
+        - stop_events["median_durations_by_segment_code_and_hour_and_day"]
+    )
+
+    stop_events["diff_percent_segment_and_median_by_segment_code"] = (
+        stop_events["diff_segment_and_median_by_segment_code"]
+        * 100
+        / stop_events["median_durations_by_segment_code"]
+    )
+
+    stop_events["diff_percent_segment_and_median_by_segment_code_and_hour_and_day"] = (
+        stop_events["diff_segment_and_median_by_segment_code_and_hour_and_day"]
+        * 100
+        / stop_events["median_durations_by_segment_code_and_hour_and_day"]
+    )
+
     print("\tAdded")
 
     return stop_events
@@ -411,7 +434,7 @@ if __name__ == "__main__":
         + "_"
         + stop_events.stopCode
         + "_"
-        + stop_events.prev_timingPoint.astype(str)
+        + stop_events.prev_timingPoint.str[0]
     )
 
     print("\tLoaded")
