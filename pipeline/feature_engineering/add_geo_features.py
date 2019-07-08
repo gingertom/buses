@@ -8,6 +8,8 @@ from pathlib import Path
 
 from tqdm import tqdm
 
+import feather
+
 from math import radians, degrees, cos, sin, asin, sqrt
 
 CENTRE_BOURNEMOUTH = -1.88, 50.72
@@ -54,6 +56,7 @@ def add_geo_features(stop_events, centre_coords):
         to_centre_dist=0,
         direction=0,
         direction_degrees=0,
+        clock_direction_degrees=0,
     )
 
     for segment_name in tqdm(unique_segment_names):
@@ -81,6 +84,15 @@ def add_geo_features(stop_events, centre_coords):
 
         direction_degrees = degrees(np.arccos(direction)) - 90
 
+        adjacent = haversine(mid_coords[0], centre_coords[1], *centre_coords)
+
+        if mid_coords[0] < CENTRE_BOURNEMOUTH[0]:
+            adjacent *= -1
+
+        clock_direction_degrees = 180 - degrees(
+            np.arccos(adjacent / mid_centre_distance)
+        )
+
         # print(line_distance)
         # print(to_centre_distance)
 
@@ -88,11 +100,12 @@ def add_geo_features(stop_events, centre_coords):
             stop_events["segment_name"] == segment_name,
             [
                 "line_distance",
-                "midpoint_lat",
                 "midpoint_lon",
+                "midpoint_lat",
                 "to_centre_dist",
                 "direction",
                 "direction_degrees",
+                "clock_direction_degrees",
             ],
         ] = (
             line_distance,
@@ -101,6 +114,7 @@ def add_geo_features(stop_events, centre_coords):
             mid_centre_distance,
             direction,
             direction_degrees,
+            clock_direction_degrees,
         )
 
     print("\tCalculated")
@@ -112,7 +126,7 @@ def is_valid_file(parser, arg):
     if not os.path.exists(arg):
         parser.error("The file %s does not exist!" % arg)
     else:
-        return open(arg, "r")  # return an open file handle
+        return arg  # return filename
 
 
 if __name__ == "__main__":
@@ -139,32 +153,15 @@ if __name__ == "__main__":
 
     print("Loading data...")
     # Load in the stop_events from the previous stage in the pipeline
-    stop_events = pd.read_csv(args.input_filename, parse_dates=[1, 5, 6, 18, 19])
-
-    # Force it to treat all the times as actual times.
-    stop_events["aimedArrival"] = stop_events["aimedArrival"].astype("datetime64[ns]")
-    stop_events["aimedDeparture"] = stop_events["aimedDeparture"].astype(
-        "datetime64[ns]"
-    )
-    stop_events["prev_aimedArrival"] = stop_events["prev_aimedArrival"].astype(
-        "datetime64[ns]"
-    )
-    stop_events["prev_aimedDeparture"] = stop_events["prev_aimedDeparture"].astype(
-        "datetime64[ns]"
-    )
-    stop_events["prev_actualArrival"] = stop_events["prev_actualArrival"].astype(
-        "datetime64[ns]"
-    )
-    stop_events["prev_actualDeparture"] = stop_events["prev_actualDeparture"].astype(
-        "datetime64[ns]"
-    )
+    stop_events = feather.read_dataframe(args.input_filename)
+    stop_events = stop_events.set_index(stop_events.columns[0])
 
     print("\tLoaded")
 
-    print("Dropping nans...")
-    # Drop any rows with nan or empty sections.
-    stop_events = stop_events.dropna(axis=0)
-    print("\tDropped")
+    # print("Dropping nans...")
+    # # Drop any rows with nan or empty sections.
+    # stop_events = stop_events.dropna(axis=0)
+    # print("\tDropped")
 
     stop_events = add_geo_features(stop_events, CENTRE_BOURNEMOUTH)
 
@@ -173,6 +170,8 @@ if __name__ == "__main__":
     # Make sure the folder is there before we write the file to it.
     Path(args.output_filename).parent.mkdir(parents=True, exist_ok=True)
 
-    stop_events.to_csv(args.output_filename, index=False)
+    stop_events = stop_events.reset_index()
+
+    stop_events.to_feather(args.output_filename)
 
     print("\tWritten")
