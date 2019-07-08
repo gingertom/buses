@@ -218,7 +218,7 @@ to_write["segment_code"] = (
     + "_"
     + to_write.stopCode
     + "_"
-    + to_write.prev_timingPoint.astype(str)
+    + to_write.prev_timingPoint.str[0]
 )
 
 to_write["segment_name"] = to_write.prev_stopCode + "_" + to_write.stopCode
