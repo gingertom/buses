@@ -160,12 +160,12 @@ if __name__ == "__main__":
     correlations = feather.read_dataframe(args.correlation_filename)
     correlations = correlations.set_index(correlations.columns[0])
 
-    stop_events = stop_events.merge(
-        correlations["0"].to_frame(),
-        left_on="segment_code",
-        right_index=True,
-        how="left",
-    )
+    # stop_events = stop_events.merge(
+    #     correlations["0"].to_frame(),
+    #     left_on="segment_code",
+    #     right_index=True,
+    #     how="left",
+    # )
 
     print("\tLoaded")
 
