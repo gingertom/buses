@@ -2,15 +2,22 @@
     "python.pythonPath": "/Users/tommelamed/anaconda3/envs/busses/bin/python",
     "python.formatting.provider": "black",
     "cSpell.words": [
+        "PRCP",
+        "YEARMODA",
         "asarray",
         "astype",
+        "bynode",
         "corrcoef",
         "dayofweek",
         "dlat",
         "dlon",
         "dropna",
+        "dtest",
+        "dtrain",
+        "dtype",
         "fillna",
         "fliplr",
+        "gbtree",
         "groupby",
         "iloc",
         "interp",
@@ -20,8 +27,10 @@
         "mkdir",
         "nans",
         "nrows",
+        "relu",
         "tolist",
         "tqdm",
+        "ttrain",
         "workid"
     ]
 }
