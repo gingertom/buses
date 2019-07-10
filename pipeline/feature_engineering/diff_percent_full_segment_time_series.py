@@ -129,6 +129,11 @@ if __name__ == "__main__":
         method="time", axis=0
     )
 
+    padded_pivoted_5mins_code_hour_day = pivoted_5mins_code_hour_day.interpolate(
+        method="pad", axis=0
+    )
+    padded_pivoted_5mins_code = pivoted_5mins_code.interpolate(method="pad", axis=0)
+
     pivoted_5mins_code_hour_day = pivoted_5mins_code_hour_day.reset_index()
     pivoted_5mins_code_hour_day.to_feather(
         str(path_5mins)
@@ -143,6 +148,14 @@ if __name__ == "__main__":
         + "/interp_diff_percent_from_code_hour_day_-_full_segment_time_series.feather"
     )
 
+    padded_pivoted_5mins_code_hour_day = (
+        padded_pivoted_5mins_code_hour_day.reset_index()
+    )
+    padded_pivoted_5mins_code_hour_day.to_feather(
+        str(path_5mins)
+        + "/padded_diff_percent_from_code_hour_day_-_full_segment_time_series.feather"
+    )
+
     pivoted_5mins_code = pivoted_5mins_code.reset_index()
     pivoted_5mins_code.to_feather(
         str(path_5mins) + "/diff_percent_from_code_-_full_segment_time_series.feather"
@@ -152,6 +165,12 @@ if __name__ == "__main__":
     interpolated_pivoted_5mins_code.to_feather(
         str(path_5mins)
         + "/interp_diff_percent_from_code_-_full_segment_time_series.feather"
+    )
+
+    padded_pivoted_5mins_code = padded_pivoted_5mins_code.reset_index()
+    padded_pivoted_5mins_code.to_feather(
+        str(path_5mins)
+        + "/padded_diff_percent_from_code_-_full_segment_time_series.feather"
     )
 
     path_10mins = to_write_path / Path("10mins")
@@ -164,6 +183,11 @@ if __name__ == "__main__":
     interpolated_pivoted_10mins_code = pivoted_10mins_code.interpolate(
         method="time", axis=0
     )
+
+    padded_pivoted_10mins_code_hour_day = pivoted_10mins_code_hour_day.interpolate(
+        method="pad", axis=0
+    )
+    padded_pivoted_10mins_code = pivoted_10mins_code.interpolate(method="pad", axis=0)
 
     pivoted_10mins_code_hour_day = pivoted_10mins_code_hour_day.reset_index()
     pivoted_10mins_code_hour_day.to_feather(
@@ -179,6 +203,14 @@ if __name__ == "__main__":
         + "/interp_diff_percent_from_code_hour_day_-_full_segment_time_series.feather"
     )
 
+    padded_pivoted_10mins_code_hour_day = (
+        padded_pivoted_10mins_code_hour_day.reset_index()
+    )
+    padded_pivoted_10mins_code_hour_day.to_feather(
+        str(path_10mins)
+        + "/padded_diff_percent_from_code_hour_day_-_full_segment_time_series.feather"
+    )
+
     pivoted_10mins_code = pivoted_10mins_code.reset_index()
     pivoted_10mins_code.to_feather(
         str(path_10mins) + "/diff_percent_from_code_-_full_segment_time_series.feather"
@@ -188,6 +220,12 @@ if __name__ == "__main__":
     interpolated_pivoted_10mins_code.to_feather(
         str(path_10mins)
         + "/interp_diff_percent_from_code_-_full_segment_time_series.feather"
+    )
+
+    padded_pivoted_10mins_code = padded_pivoted_10mins_code.reset_index()
+    padded_pivoted_10mins_code.to_feather(
+        str(path_10mins)
+        + "/padded_diff_percent_from_code_-_full_segment_time_series.feather"
     )
 
     path_1hour = to_write_path / Path("1hour")
@@ -200,6 +238,11 @@ if __name__ == "__main__":
     interpolated_pivoted_1hour_code = pivoted_1hour_code.interpolate(
         method="time", axis=0
     )
+
+    padded_pivoted_1hour_code_hour_day = pivoted_1hour_code_hour_day.interpolate(
+        method="pad", axis=0
+    )
+    padded_pivoted_1hour_code = pivoted_1hour_code.interpolate(method="pad", axis=0)
 
     pivoted_1hour_code_hour_day = pivoted_1hour_code_hour_day.reset_index()
     pivoted_1hour_code_hour_day.to_feather(
@@ -220,10 +263,24 @@ if __name__ == "__main__":
         + "/interp_diff_percent_from_code_hour_day_-_full_segment_time_series.feather"
     )
 
+    padded_pivoted_1hour_code_hour_day = (
+        padded_pivoted_1hour_code_hour_day.reset_index()
+    )
+    padded_pivoted_1hour_code_hour_day.to_feather(
+        str(path_1hour)
+        + "/padded_diff_percent_from_code_hour_day_-_full_segment_time_series.feather"
+    )
+
     interpolated_pivoted_1hour_code = interpolated_pivoted_1hour_code.reset_index()
     interpolated_pivoted_1hour_code.to_feather(
         str(path_1hour)
         + "/interp_diff_percent_from_code_-_full_segment_time_series.feather"
+    )
+
+    padded_pivoted_1hour_code = padded_pivoted_1hour_code.reset_index()
+    padded_pivoted_1hour_code.to_feather(
+        str(path_1hour)
+        + "/padded_diff_percent_from_code_-_full_segment_time_series.feather"
     )
 
     print("\tWritten")
