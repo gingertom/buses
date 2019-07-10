@@ -90,8 +90,8 @@ def add_offsets(se):
         / se["median_durations_by_segment_code_and_hour_and_day"]
     )
 
-    segment_names = ["0", "segment_code"]
-    column_names = ["best_offset", "self_offset"]
+    segment_names = ["segment_code"]
+    column_names = ["self_offset"]
 
     for i in range(1, 5):
         segment_names.append(f"prev_segment_code_{i}")
