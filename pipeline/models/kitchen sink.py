@@ -12,6 +12,8 @@ import os
 
 import xgboost as xgb
 
+import plaidml.keras
+
 import keras
 from keras.preprocessing import sequence
 from keras import layers, Input, Model
@@ -27,6 +29,7 @@ from pathlib import Path
 
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
+plaidml.keras.install_backend()
 
 
 def filter_rare(stop_events):
@@ -48,11 +51,6 @@ def drop_features(se):
 
     se = se.drop(
         labels=[
-            "0",
-            "best_offset_5_4",
-            "best_offset_5_3",
-            "best_offset_5_2",
-            "best_offset_5_1",
             "test",
             "train",
             "direction",
@@ -186,7 +184,7 @@ def prep_matrices(se, se_min, days):
                 "segment_duration",
             ]
         ],
-        75,
+        days,
     )
 
     # train_matrix = stop_events[stop_events['train']][['line_distance', 'to_centre_dist', 'direction_degrees', 'best_0', 'best_1', 'best_2', 'best_3', 'best_4', 'best_5', 'best_6', 'best_7', 'best_8', 'best_9', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39']].values
@@ -256,6 +254,7 @@ def prep_matrices(se, se_min, days):
     train_matrix_st = st_scaler.fit_transform(
         train_matrix_st.reshape(len(train_target_scaled), -1)
     ).reshape(train_matrix_st_shape)
+
     test_matrix_st = st_scaler.transform(
         test_matrix_st.reshape(len(test_target_scaled), -1)
     ).reshape(test_matrix_st_shape)
@@ -409,6 +408,8 @@ def XGBoost_reg(train_matrix, train_target, test_matrix, days):
 
 def RF_reg(train_matrix, train_target, test_matrix, days):
 
+    # With help from: https://xgboost.readthedocs.io/en/latest/tutorials/rf.html
+
     rf_reg = xgb.XGBRegressor(
         objective="reg:linear",
         eval_metric="mae",
@@ -467,6 +468,8 @@ def create_LSTM(input_shape):
 
 def create_combined_model(road_input_shape, aux_input_shape):
 
+    # with help from: https://keras.io/getting-started/functional-api-guide/
+
     # Headline input: meant to receive road time series.
     main_input = Input(shape=road_input_shape, dtype="float32", name="road_time_input")
     lstm_out = LSTM(40)(main_input)
@@ -508,7 +511,7 @@ def full_connected(
         ),
     ]
 
-    model.compile(optimizer="rmsprop", loss="mean_absolute_error", metrics=["MAE"])
+    model.compile(optimizer="rmsprop", loss="mean_absolute_error")
     model.fit(
         train_matrix_scaled,
         train_target_scaled,
@@ -530,13 +533,13 @@ def lstm(train_matrix_st, train_target_scaled, test_matrix_st, days, scaler_targ
     callbacks_list = [
         keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
         keras.callbacks.ModelCheckpoint(
-            filepath=f"Data Exploration/models {days}days/full_conn_model.h5",
+            filepath=f"Data Exploration/models {days}days/lstm_model.h5",
             monitor="val_loss",
             save_best_only=True,
         ),
     ]
 
-    model.compile(optimizer="rmsprop", loss="mean_absolute_error", metrics=["MAE"])
+    model.compile(optimizer="rmsprop", loss="mean_absolute_error")
     model.fit(
         train_matrix_st,
         train_target_scaled,
@@ -578,7 +581,7 @@ def combined(
     model.compile(
         optimizer="rmsprop",
         loss="mean_absolute_error",
-        metrics=["MAE"],
+        # metrics=["MAE"],
         loss_weights=[1, 0.2],
     )
     model.fit(
@@ -713,13 +716,7 @@ if __name__ == "__main__":
 
     predict_NN_lstm = make_prediction(
         test_medians,
-        lstm(
-            train_matrix_scaled,
-            train_target_scaled,
-            test_matrix_scaled,
-            days,
-            scaler_target,
-        ),
+        lstm(train_matrix_st, train_target_scaled, test_matrix_st, days, scaler_target),
     )
 
     predict_NN_combined = make_prediction(
@@ -735,18 +732,20 @@ if __name__ == "__main__":
         ),
     )
 
-    print(f"Medians only MAPE: {MAPE(test_medians, test_durations)}")
+    with open(f"results-{days}.txt", "w") as file:
 
-    print(f"Linear MAPE: {MAPE(predict_reg, test_durations)}")
+        file.write(f"Medians only MAPE: {MAPE(test_medians, test_durations)}\n")
 
-    print(f"XGBoost MAPE: {MAPE(predict_xg, test_durations)}")
+        file.write(f"Linear MAPE: {MAPE(predict_reg, test_durations)}\n")
 
-    print(f"RF MAPE: {MAPE(predict_rf, test_durations)}")
+        file.write(f"XGBoost MAPE: {MAPE(predict_xg, test_durations)}\n")
 
-    print(f"NN MAPE: {MAPE(predict_NN, test_durations)}")
+        file.write(f"RF MAPE: {MAPE(predict_rf, test_durations)}\n")
 
-    print(f"LSTM MAPE: {MAPE(predict_NN_lstm, test_durations)}")
+        file.write(f"NN MAPE: {MAPE(predict_NN, test_durations)}\n")
 
-    print(f"NN combined MAPE: {MAPE(predict_NN_combined, test_durations)}")
+        file.write(f"LSTM MAPE: {MAPE(predict_NN_lstm, test_durations)}\n")
+
+        file.write(f"NN combined MAPE: {MAPE(predict_NN_combined, test_durations)}\n")
 
     # print(f"self_offset MAPE: {MAPE(predict_self_offset, test['segment_duration'])}")
