@@ -153,15 +153,17 @@ if __name__ == "__main__":
 
     print("Loading data...")
     # Load in the stop_events from the previous stage in the pipeline
-    stop_events = feather.read_dataframe(args.input_filename)
-    stop_events = stop_events.set_index(stop_events.columns[0])
-
+    if Path(args.input_filename).suffix == ".csv":
+        stop_events = pd.read_csv(args.input_filename)
+    else:
+        stop_events = feather.read_dataframe(args.input_filename)
+        stop_events = stop_events.set_index(stop_events.columns[0])
     print("\tLoaded")
 
-    # print("Dropping nans...")
-    # # Drop any rows with nan or empty sections.
-    # stop_events = stop_events.dropna(axis=0)
-    # print("\tDropped")
+    print("Dropping nans...")
+    # Drop any rows with nan or empty sections.
+    stop_events = stop_events.dropna(axis=0)
+    print("\tDropped")
 
     stop_events = add_geo_features(stop_events, CENTRE_BOURNEMOUTH)
 
@@ -170,8 +172,10 @@ if __name__ == "__main__":
     # Make sure the folder is there before we write the file to it.
     Path(args.output_filename).parent.mkdir(parents=True, exist_ok=True)
 
-    stop_events = stop_events.reset_index()
-
-    stop_events.to_feather(args.output_filename)
+    if Path(args.output_filename).suffix == ".csv":
+        stop_events.to_csv(args.input_filename, index=False)
+    else:
+        stop_events = stop_events.reset_index()
+        stop_events.to_feather(args.output_filename)
 
     print("\tWritten")
