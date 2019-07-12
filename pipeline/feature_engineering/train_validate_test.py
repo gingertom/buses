@@ -73,6 +73,8 @@ if __name__ == "__main__":
 
     stop_events["date"] = stop_events["date"].astype("datetime64[ns]")
 
+    stop_events["publicName"] = stop_events["publicName"].astype("str")
+
     print("\tLoaded")
 
     print("Dropping nans...")
