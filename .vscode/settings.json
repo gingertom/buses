@@ -27,6 +27,7 @@
         "mkdir",
         "nans",
         "nrows",
+        "plaidml",
         "relu",
         "tolist",
         "tqdm",
