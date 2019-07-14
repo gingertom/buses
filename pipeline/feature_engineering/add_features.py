@@ -358,6 +358,26 @@ def add_diffs(stop_events):
         / stop_events["median_durations_by_segment_code_and_hour_and_day"]
     )
 
+    # Now we calculate the standard deviation of the diff percentages, so we know what
+    # kind of spread to predict for this code/hour/day
+    segment_code_and_hour_and_day_groups = stop_events[stop_events["train"]].groupby(
+        ["segment_code", "arrival_hour", "arrival_day"]
+    )
+
+    std_diff_percent_segment_median_by_segment_code_and_hour_and_day = (
+        segment_code_and_hour_and_day_groups[
+            "diff_percent_segment_and_median_by_segment_code_and_hour_and_day"
+        ]
+        .std()
+        .rename("std_diff_percent_segment_median_by_segment_code_and_hour_and_day")
+    )
+    stop_events = stop_events.merge(
+        std_diff_percent_segment_median_by_segment_code_and_hour_and_day.to_frame(),
+        "left",
+        left_on=["segment_code", "arrival_hour", "arrival_day"],
+        right_index=True,
+    )
+
     print("\tAdded")
 
     return stop_events
