@@ -1,0 +1,8 @@
+method,dropout,recurant_dropout,loss_weight,MAPE
+medians,nan,nan,nan,24.735514129863798
+linear,nan,nan,nan,30.10496128077707
+xgb,nan,nan,nan,26.960329482147024
+RF,nan,nan,nan,25.421821565393447
+NN,0,nan,nan,21.522184624283426
+LSTM,0,0.125,nan,23.07926245869355
+Combined,0,0.125,0.2,21.181139572769435

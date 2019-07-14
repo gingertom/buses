@@ -1,0 +1,16 @@
+All using fully connected NN [32, 12 12, 1] all relu except for last one which is tanh no dropout
+All features scaled using standard scaler
+
+standard -> 22.797684049548828
+minmax -> 23.60067084595957
+robust -> 22.853594950888553
+uniform -> 24.158477469874544
+normal -> 23.88348671035205
+
+As above all features scaled using the same scaler as the target:
+
+standard -> 23.180869730986775
+minmax -> 25.980922401126342
+robust -> 22.671598981154453
+uniform -> 23.381176516042416
+normal -> 23.9336693745935
