@@ -22,6 +22,8 @@ def add_prev_next_inner(row, patterns_dict):
         "prev_segment_code_3",
         "prev_segment_code_4",
         "prev_segment_code_5",
+        "prev_segment_code_6",
+        "prev_segment_code_7",
     ]:
         if stop_code is None:
             break
@@ -45,6 +47,8 @@ def add_prev_next_inner(row, patterns_dict):
         "next_segment_code_3",
         "next_segment_code_4",
         "next_segment_code_5",
+        "next_segment_code_6",
+        "next_segment_code_7",
     ]:
         if stop_code is None:
             break
@@ -127,11 +131,15 @@ def add_prev_next_all(stop_events):
         prev_segment_code_3="",
         prev_segment_code_4="",
         prev_segment_code_5="",
+        prev_segment_code_6="",
+        prev_segment_code_7="",
         next_segment_code_1="",
         next_segment_code_2="",
         next_segment_code_3="",
         next_segment_code_4="",
         next_segment_code_5="",
+        next_segment_code_6="",
+        next_segment_code_7="",
     )
 
     stop_events_fast_lookup = (
@@ -156,11 +164,15 @@ def add_prev_next_all(stop_events):
         "prev_event_index_3",
         "prev_event_index_4",
         "prev_event_index_5",
+        "prev_event_index_6",
+        "prev_event_index_7",
         "next_event_index_1",
         "next_event_index_2",
         "next_event_index_3",
         "next_event_index_4",
         "next_event_index_5",
+        "next_event_index_6",
+        "next_event_index_7",
     ]
 
     code_columns = [
@@ -169,11 +181,15 @@ def add_prev_next_all(stop_events):
         "prev_segment_code_3",
         "prev_segment_code_4",
         "prev_segment_code_5",
+        "prev_segment_code_6",
+        "prev_segment_code_7",
         "next_segment_code_1",
         "next_segment_code_2",
         "next_segment_code_3",
         "next_segment_code_4",
         "next_segment_code_5",
+        "next_segment_code_6",
+        "next_segment_code_7",
     ]
 
     for i in range(len(index_columns)):
