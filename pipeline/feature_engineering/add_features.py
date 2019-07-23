@@ -336,7 +336,6 @@ def add_diffs(stop_events):
     )
 
     # And now for just segments:
-
     stop_events["diff_segment_and_median_by_segment_code"] = (
         stop_events["segment_duration"]
         - stop_events["median_durations_by_segment_code"]
@@ -383,8 +382,23 @@ def add_diffs(stop_events):
     return stop_events
 
 
+def add_rain(stop_events):
+
+    weather = pd.read_csv("weather/CDO9610867945337_weather.csv")
+
+    weather["date"] = pd.to_datetime(weather[" YEARMODA"], format="%Y%m%d")
+    weather["rain"] = weather["PRCP  "].apply(lambda x: float(x[:-1]))
+
+    just_rain = weather[["date", "rain"]]
+
+    stop_events = stop_events.merge(just_rain, left_on="date", right_on="date")
+
+    return stop_events
+
+
 def add_features(stop_events):
 
+    stop_events = add_rain(stop_events)
     stop_events = add_durations(stop_events)
     stop_events = add_means_and_medians(stop_events)
     stop_events = add_diffs(stop_events)
