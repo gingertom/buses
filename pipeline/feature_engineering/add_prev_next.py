@@ -16,15 +16,9 @@ def add_prev_next_inner(row, patterns_dict):
     stop_code = row["prev_stopCode"]
     pattern_id = row["patternId"]
 
-    for prev in [
-        "prev_segment_code_1",
-        "prev_segment_code_2",
-        "prev_segment_code_3",
-        "prev_segment_code_4",
-        "prev_segment_code_5",
-        "prev_segment_code_6",
-        "prev_segment_code_7",
-    ]:
+    for i in range(1, 31):
+        prev = f"prev_segment_code_{i}"
+
         if stop_code is None:
             break
 
@@ -41,15 +35,9 @@ def add_prev_next_inner(row, patterns_dict):
 
     stop_code = row["stopCode"]
 
-    for prev in [
-        "next_segment_code_1",
-        "next_segment_code_2",
-        "next_segment_code_3",
-        "next_segment_code_4",
-        "next_segment_code_5",
-        "next_segment_code_6",
-        "next_segment_code_7",
-    ]:
+    for i in range(1, 8):
+        next = f"next_segment_code_{i}"
+
         if stop_code is None:
             break
 
@@ -59,7 +47,7 @@ def add_prev_next_inner(row, patterns_dict):
             break
 
         row[
-            prev
+            next
         ] = f"{stop_code}_{next_stop_code}_{patterns_dict[pattern_id][stop_code]['this_stop_timing_point']}"
 
         stop_code = next_stop_code
@@ -125,22 +113,15 @@ def add_prev_next_all(stop_events):
 
     print("Adding Prev Next codes...")
 
-    stop_events = stop_events.assign(
-        prev_segment_code_1="",
-        prev_segment_code_2="",
-        prev_segment_code_3="",
-        prev_segment_code_4="",
-        prev_segment_code_5="",
-        prev_segment_code_6="",
-        prev_segment_code_7="",
-        next_segment_code_1="",
-        next_segment_code_2="",
-        next_segment_code_3="",
-        next_segment_code_4="",
-        next_segment_code_5="",
-        next_segment_code_6="",
-        next_segment_code_7="",
-    )
+    assign_dict = {}
+
+    for i in range(1, 31):
+        assign_dict[f"prev_segment_code_{i}"] = ""
+
+    for i in range(1, 8):
+        assign_dict[f"next_segment_code_{i}"] = ""
+
+    stop_events = stop_events.assign(**assign_dict)
 
     stop_events_fast_lookup = (
         stop_events.reset_index()
@@ -158,41 +139,18 @@ def add_prev_next_all(stop_events):
 
     print("Adding Prev Next indices...")
 
-    index_columns = [
-        "prev_event_index_1",
-        "prev_event_index_2",
-        "prev_event_index_3",
-        "prev_event_index_4",
-        "prev_event_index_5",
-        "prev_event_index_6",
-        "prev_event_index_7",
-        "next_event_index_1",
-        "next_event_index_2",
-        "next_event_index_3",
-        "next_event_index_4",
-        "next_event_index_5",
-        "next_event_index_6",
-        "next_event_index_7",
-    ]
+    index_columns = []
+    code_columns = []
 
-    code_columns = [
-        "prev_segment_code_1",
-        "prev_segment_code_2",
-        "prev_segment_code_3",
-        "prev_segment_code_4",
-        "prev_segment_code_5",
-        "prev_segment_code_6",
-        "prev_segment_code_7",
-        "next_segment_code_1",
-        "next_segment_code_2",
-        "next_segment_code_3",
-        "next_segment_code_4",
-        "next_segment_code_5",
-        "next_segment_code_6",
-        "next_segment_code_7",
-    ]
+    for i in range(1, 31):
+        index_columns.append(f"prev_event_index_{i}")
+        code_columns.append(f"prev_segment_code_{i}")
 
-    for i in range(len(index_columns)):
+    for i in range(1, 8):
+        index_columns.append(f"next_event_index_{i}")
+        code_columns.append(f"next_segment_code_{i}")
+
+    for i in tqdm(range(len(index_columns))):
 
         stop_events = stop_events.merge(
             stop_events_fast_lookup.rename(index_columns[i]).to_frame(),
@@ -214,6 +172,15 @@ def is_valid_file(parser, arg):
         parser.error("The file %s does not exist!" % arg)
     else:
         return arg  # return a filename
+
+
+def exclude_columns_containing(se, to_remove):
+
+    min_cols = [c for c in se.columns if not any(x in c for x in to_remove)]
+
+    se_min = se[min_cols]
+
+    return se_min
 
 
 if __name__ == "__main__":
@@ -245,6 +212,8 @@ if __name__ == "__main__":
     stop_events = feather.read_dataframe(args.input_filename)
     stop_events = stop_events.set_index("index")
 
+    stop_events = exclude_columns_containing(stop_events, ["mean", "median", "offset"])
+
     # Ensure that the segment code is using the previous
     # timing point not the current one as we use  the previous
     # dwell time.
@@ -264,9 +233,6 @@ if __name__ == "__main__":
 
     stop_events = stop_events.reset_index()
 
-    stop_events.to_feather(
-        str(from_path.parent)
-        + "/stop_events_with_geo_train_test_averages_prev_next.feather"
-    )
+    stop_events.to_feather(str(from_path.parent) + "/se_prev_next.feather")
 
     print("\tWritten")
