@@ -23,6 +23,7 @@
         "interp",
         "isin",
         "iterrows",
+        "itertuples",
         "mape",
         "minmax",
         "mkdir",
