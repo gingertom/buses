@@ -1,2 +1,2 @@
-# busses
+# buses
 Bus Project Repo
