@@ -23,7 +23,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
+MANIFEST 
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -108,3 +108,10 @@ Trapeze_Data/
 legal
 Intermediate_Data
 data_files
+
+# datafiles we won't upload
+.csv
+.npy
+.pdf
+.h5
+.feather
