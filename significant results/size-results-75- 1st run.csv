@@ -1,8 +1,0 @@
-method,dropout,recurant_dropout,loss_weight,size,MAPE
-medians,nan,nan,nan,nan,26.37532518182463
-NN,0,nan,nan,small,22.677291693044477
-LSTM,0,0.125,nan,small,24.253834083393155
-NN,0,nan,nan,medium,23.748941270991132
-LSTM,0,0.125,nan,medium,24.57539707139741
-NN,0,nan,nan,large,22.0867039627234
-LSTM,0,0.125,nan,large,24.163160553497164
