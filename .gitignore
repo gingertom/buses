@@ -110,8 +110,12 @@ Intermediate_Data
 data_files
 
 # datafiles we won't upload
-.csv
-.npy
-.pdf
-.h5
-.feather
+*.csv
+*.npy
+*.pdf
+*.h5
+*.feather
+Manchester_Data
+Bournemouth GTFS
+size results
+size-results*
