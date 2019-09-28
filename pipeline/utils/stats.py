@@ -25,19 +25,28 @@ class Stats:
         if data_type not in ["diff", "speed", "duration"]:
             raise ValueError("data_type must be: diff, speed or duration")
 
-        print(" & MAPE & RMSE & MAE & PW10 & MAPE & RMSE & MAE & PW10 \\\\")
+        rows = []
 
-        self._stats(
-            self.actual_array_cum,
-            self.baseline_array_cum,
-            "Mean (chd)",
-            self.first_20mins_mask,
+        header = " & MAPE & RMSE & MAE & PW10 & MAPE & RMSE & MAE & PW10 \\\\"
+        print(header)
+        rows.append(header)
+
+        rows.append(
+            self._stats(
+                self.actual_array_cum,
+                self.baseline_array_cum,
+                "Mean (chd)",
+                self.first_20mins_mask,
+            )
         )
-        self._stats(
-            self.actual_array_cum,
-            self.baseline_median_array_cum,
-            "Median (chd)",
-            self.first_20mins_mask,
+
+        rows.append(
+            self._stats(
+                self.actual_array_cum,
+                self.baseline_median_array_cum,
+                "Median (chd)",
+                self.first_20mins_mask,
+            )
         )
 
         for i in range(len(tests)):
@@ -45,9 +54,32 @@ class Stats:
                 self.data, test=tests[i], data_type=data_type
             )
 
-            self._stats(
-                self.actual_array_cum, test_array_cum, names[i], self.first_20mins_mask
+            rows.append(
+                self._stats(
+                    self.actual_array_cum,
+                    test_array_cum,
+                    names[i],
+                    self.first_20mins_mask,
+                )
             )
+
+        return "\n".join(rows) + "\n"
+
+    def single_row(self, test, name, data_type="diff"):
+
+        if data_type not in ["diff", "speed", "duration"]:
+            raise ValueError("data_type must be: diff, speed or duration")
+
+        test_array_cum = self._calc_prediction_cum_journeys(
+            self.data, test=test, data_type=data_type
+        )
+
+        return str(
+            self._stats(
+                self.actual_array_cum, test_array_cum, name, self.first_20mins_mask
+            )
+            + str("\n")
+        )
 
     def draw_time(self, data, names, filename=None, data_type="duration"):
 
@@ -67,7 +99,7 @@ class Stats:
             )
 
         plt.xlim(0, 20)
-        plt.title("PW10 Scores By How Far In Advance A Prediction Is")
+        plt.title("PW10 Scores By How Far\nIn Advance A Prediction Is")
         plt.xlabel("Time (minutes)")
         plt.ylabel("PW10 Score (%)")
         plt.legend()
@@ -165,9 +197,11 @@ class Stats:
         )
         pass_fraction_long = pass_count_long / np.count_nonzero(first_20mins_mask)
 
-        print(
-            f"{name} & {mape_short:0.3f} & {rmse_short:0.3f} & {mae_short:0.3f} & {pass_fraction_short*100:0.3f} & {mape_long:0.3f} & {rmse_long:0.3f} & {mae_long:0.3f} & {pass_fraction_long*100:0.3f} \\\\"
-        )
+        results = f"{name} & {mape_short:0.3f} & {rmse_short:0.3f} & {mae_short:0.3f} & {pass_fraction_short*100:0.3f} & {mape_long:0.3f} & {rmse_long:0.3f} & {mae_long:0.3f} & {pass_fraction_long*100:0.3f} \\\\"
+
+        print(results)
+
+        return results
 
     def _MAPE(self, forecast, actual):
 
