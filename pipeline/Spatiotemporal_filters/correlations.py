@@ -14,7 +14,9 @@ def find_direct_correlations(time_series):
 
     # Need at least a 1 percent overlap in periods
     correlations = time_series.corr(
-        method="pearson", min_periods=int(time_series.shape[0] / 100)
+        method="pearson",
+        min_periods=100
+        # method="pearson", min_periods=int(time_series.shape[0] / 100)
     )
 
     correlations = correlations.fillna(value=float("-1.1"))
@@ -47,7 +49,9 @@ def find_offset_correlations(time_series):
 
     # Need at least a 1 percent overlap in periods
     correlations = time_wide.corr(
-        method="pearson", min_periods=int(time_series.shape[0] / 100)
+        method="pearson",
+        min_periods=100
+        # method="pearson", min_periods=int(time_series.shape[0] / 100)
     )
     correlations = correlations.fillna(value=float("-1.1"))
 
@@ -85,7 +89,9 @@ def find_high_traffic_correlations(time_series, min_fraction):
 
     # Need at least a 1 percent overlap in periods
     correlations = time_wide.corr(
-        method="pearson", min_periods=int(time_series.shape[0] / 100)
+        method="pearson",
+        min_periods=100
+        # method="pearson", min_periods=int(time_series.shape[0] / 100)
     )
     correlations = correlations.fillna(value=float("-1.1"))
 
@@ -131,7 +137,9 @@ def find_high_traffic_offset_correlations(time_series, min_fraction):
 
     # Need at least a 1 percent overlap in periods
     correlations = time_wide.corr(
-        method="pearson", min_periods=int(time_series.shape[0] / 100)
+        method="pearson",
+        min_periods=100
+        # method="pearson", min_periods=int(time_series.shape[0] / 100)
     )
     correlations = correlations.fillna(value=float("-1.1"))
 
