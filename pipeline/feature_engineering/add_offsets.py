@@ -13,6 +13,9 @@ from pathlib import Path
 
 def add_offsets_inner(row, ts):
 
+    # Vectorise this by creating slice of indexes (going back in time) and a list of columns and get them all at once.
+    # Find a way to do this with a default...
+
     try:
         if row[1] == "":
             return np.nan
@@ -28,25 +31,33 @@ def add_offsets(se, interpolate=True):
 
     print("Adding Offsets...")
 
-    se["arrival_5mins"] = se["actualArrival"].dt.round("5min")
-    se["offset_timestamp_5_1"] = se["arrival_5mins"] - pd.Timedelta("5 min")
-    se["offset_timestamp_5_2"] = se["arrival_5mins"] - pd.Timedelta("10 min")
-    se["offset_timestamp_5_3"] = se["arrival_5mins"] - pd.Timedelta("15 min")
-    se["offset_timestamp_5_4"] = se["arrival_5mins"] - pd.Timedelta("20 min")
-    se["offset_timestamp_5_5"] = se["arrival_5mins"] - pd.Timedelta("25 min")
-    se["offset_timestamp_5_6"] = se["arrival_5mins"] - pd.Timedelta("30 min")
-    se["offset_timestamp_5_7"] = se["arrival_5mins"] - pd.Timedelta("35 min")
+    se["arrival_10mins"] = se["actualArrival"].dt.round("10min")
+    # se["offset_timestamp_10_1"] = se["arrival_10mins"] - pd.Timedelta("10 min")
+    # se["offset_timestamp_10_2"] = se["arrival_10mins"] - pd.Timedelta("20 min")
+    # se["offset_timestamp_10_3"] = se["arrival_10mins"] - pd.Timedelta("30 min")
+    # se["offset_timestamp_10_4"] = se["arrival_10mins"] - pd.Timedelta("40 min")
+    # se["offset_timestamp_10_5"] = se["arrival_10mins"] - pd.Timedelta("50 min")
+    # se["offset_timestamp_10_6"] = se["arrival_10mins"] - pd.Timedelta("60 min")
+    # se["offset_timestamp_10_7"] = se["arrival_10mins"] - pd.Timedelta("70 min")
+    # se["offset_timestamp_10_8"] = se["arrival_10mins"] - pd.Timedelta("80 min")
+    # se["offset_timestamp_10_9"] = se["arrival_10mins"] - pd.Timedelta("90 min")
+
+    se["offset_timestamp_10_10"] = se["arrival_10mins"] - pd.Timedelta("100 min")
+    se["offset_timestamp_10_11"] = se["arrival_10mins"] - pd.Timedelta("110 min")
+    se["offset_timestamp_10_12"] = se["arrival_10mins"] - pd.Timedelta("120 min")
+    se["offset_timestamp_10_13"] = se["arrival_10mins"] - pd.Timedelta("130 min")
+    se["offset_timestamp_10_14"] = se["arrival_10mins"] - pd.Timedelta("140 min")
 
     # We need to generate this from scratch as we need both test and train data.
-    ts_5 = se.pivot_table(
-        index="arrival_5mins",
+    ts_10 = se.pivot_table(
+        index="arrival_10mins",
         columns="segment_code",
         values="diff_percent_segment_and_median_by_segment_code_and_hour_and_day",
         aggfunc=np.median,
     )
 
     if interpolate:
-        ts_5 = ts_5.interpolate(method="pad", axis=0)
+        ts_10 = ts_10.interpolate(method="pad", axis=0, limit=5)
 
     segment_names = ["segment_code"]
     column_names = ["self_offset"]
@@ -57,12 +68,12 @@ def add_offsets(se, interpolate=True):
         column_names.append(f"prev_stop_{i}_offset")
         column_names.append(f"next_stop_{i}_offset")
 
-    for i in range(1, 8):
+    for i in range(10, 15):
         for j in range(len(segment_names)):
             print(".", end="", flush=True)
-            se[f"{column_names[j]}_5_{i}"] = se[
-                [f"offset_timestamp_5_{i}", segment_names[j]]
-            ].apply(add_offsets_inner, axis=1, args=(ts_5,))
+            se[f"{column_names[j]}_10_{i}"] = se[
+                [f"offset_timestamp_10_{i}", segment_names[j]]
+            ].apply(add_offsets_inner, axis=1, args=(ts_10,))
 
     return se
 
@@ -111,16 +122,16 @@ if __name__ == "__main__":
     stop_events = feather.read_dataframe(args.input_filename)
     stop_events = stop_events.set_index("index")
 
-    # Ensure that the segment code is using the previous
-    # timing point not the current one as we use  the previous
-    # dwell time.
-    stop_events["segment_code"] = (
-        stop_events.prev_stopCode
-        + "_"
-        + stop_events.stopCode
-        + "_"
-        + stop_events.prev_timingPoint.str[0]
-    )
+    # # Ensure that the segment code is using the previous
+    # # timing point not the current one as we use  the previous
+    # # dwell time.
+    # stop_events["segment_code"] = (
+    #     stop_events.prev_stopCode
+    #     + "_"
+    #     + stop_events.stopCode
+    #     + "_"
+    #     + stop_events.prev_timingPoint.str[0]
+    # )
 
     # correlations = feather.read_dataframe(args.correlation_filename)
     # correlations = correlations.set_index(correlations.columns[0])
