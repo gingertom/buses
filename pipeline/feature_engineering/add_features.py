@@ -460,6 +460,13 @@ if __name__ == "__main__":
         "datetime64[ns]"
     )
 
+    stop_events["actualArrival"] = stop_events["actualArrival"].astype("datetime64[ns]")
+    stop_events["actualDeparture"] = stop_events["actualDeparture"].astype(
+        "datetime64[ns]"
+    )
+
+    stop_events["date"] = stop_events["date"].astype("datetime64[ns]")
+
     # Ensure that the segment code is useing the previous
     # timing point not the current one as we use  the previous
     # dwell time.
@@ -468,7 +475,7 @@ if __name__ == "__main__":
         + "_"
         + stop_events.stopCode
         + "_"
-        + stop_events.prev_timingPoint.str[0]
+        + stop_events.prev_timingPoint.astype(int).astype(str).str[0]
     )
 
     print("\tLoaded")
