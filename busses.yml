@@ -1,9 +1,0 @@
-name: busses
-channels:
-  - conda-forge
-  - defaults
-dependencies:
- - boto3
- - requests
- - gpxpy
- - numpy
